@@ -12,7 +12,7 @@ ServerSleuth 是一套跨平台（Windows Server + Linux Server）的**伺服器
 4. **遷移評估（Migration Assessment）** — 產出每個應用程式/伺服器層級的遷移狀態（Blocked / NeedsRemediation / ReadyWithConditions / Ready）、遷移問題、遷移動作與驗證檢查項目（皆為**宣告式**，工具本身不會執行）。
 5. **報表輸出（Reporting）** — 產出 `report.json`（機器可讀）與 `report.html`（人可讀，內容為純靜態、零 JavaScript）。報表中若偵測到 `Password=`、`ConnectionString=`、`API_KEY=`、`TOKEN=`、`SECRET=`、`PRIVATE_KEY=` 等機密樣式，一律以 `[REDACTED]` / `SecretDetected: true`呈現，絕不外洩明文。
 
-專案採分層架構，探勘（Discovery）、關聯分析（Correlation/Analysis）、報表（Reporting）彼此分離，每個掃描器都實作統一的 `IDiscoveryScanner` 介面並登記於掃描器註冊表；單一掃描器失敗不會中止整個掃描（Fault isolation），最終會列出成功/部分成功/失敗/略過的掃描摘要。詳細的模組劃分與設計決策請見 [`ARCHITECTURE.md`](ARCHITECTURE.md)；完整開發歷程與各階段測試結果請見 [`PROGRESS.md`](PROGRESS.md)；各掃描器的用途/資料來源/所需權限/已知限制請見 [`SCANNERS.md`](SCANNERS.md)。
+專案採分層架構，探勘（Discovery）、關聯分析（Correlation/Analysis）、報表（Reporting）彼此分離，每個掃描器都實作統一的 `IDiscoveryScanner` 介面並登記於掃描器註冊表；單一掃描器失敗不會中止整個掃描（Fault isolation），最終會列出成功/部分成功/失敗/略過的掃描摘要。詳細的模組劃分與設計決策請見 [`ARCHITECTURE.md`](ARCHITECTURE.md)；各掃描器的用途/資料來源/所需權限/已知限制請見 [`SCANNERS.md`](SCANNERS.md)。
 
 ## 專案結構
 

@@ -141,7 +141,7 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 
 ## 目前完成進度
 
-專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）以及 GUI-1 至 GUI-6（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、最終上線前的健檢與強化）。詳細的逐階段紀錄、測試結果與已知限制請見 [`PROGRESS.md`](PROGRESS.md) 與 [`CHANGELOG.md`](CHANGELOG.md)。
+專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）以及 GUI-1 至 GUI-6（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、最終上線前的健檢與強化）。詳細的版本異動請見 [`CHANGELOG.md`](CHANGELOG.md)。
 
 > GUI 的互動式視覺驗證（實際點擊操作、畫面截圖）目前尚未在任何開發環境中執行過（本專案的開發流程沒有可用的 Windows 桌面自動化/截圖能力），此限制已在文件中如實記載，未來如需要正式驗收，仍建議由使用者在真實桌面環境中親自操作一次完整流程。
 
@@ -156,7 +156,5 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 ## 延伸文件
 
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — 實際落地的架構與各階段設計決策記錄
-- [`PROGRESS.md`](PROGRESS.md) — 逐階段開發/建置/測試歷程
 - [`SCANNERS.md`](SCANNERS.md) — 每個掃描器的用途、資料來源、所需權限與限制
 - [`CHANGELOG.md`](CHANGELOG.md) — 版本異動紀錄
-- [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md) — 各階段實作規劃與狀態

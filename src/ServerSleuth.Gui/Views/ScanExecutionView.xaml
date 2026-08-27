@@ -5,17 +5,17 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-            <TextBlock Text="Scan Execution" Style="{StaticResource Text.PageTitle}" />
+            <TextBlock Text="{DynamicResource ScanExec.Title}" Style="{StaticResource Text.PageTitle}" />
 
             <TextBlock Style="{StaticResource Text.Body}" Margin="0,16,0,0">
-                <Run Text="Target: " FontWeight="SemiBold" />
+                <Run Text="{DynamicResource ScanExec.TargetLabel}" FontWeight="SemiBold" />
                 <Run Text="{Binding State.TargetDisplayName, Mode=OneWay}" />
                 <Run Text=" (" />
                 <Run Text="{Binding State.TargetPlatform, Mode=OneWay}" />
                 <Run Text=")" />
             </TextBlock>
 
-            <TextBlock Text="Current Stage" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
+            <TextBlock Text="{DynamicResource ScanExec.CurrentStage}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
             <TextBlock Text="{Binding State.CurrentStage, Mode=OneWay}" Style="{StaticResource Text.Title}" />
 
             <!-- Discovery scanner detail — only meaningful once at least one scanner has reported. -->
@@ -28,14 +28,14 @@
                             <Run Text="{Binding Status, Mode=OneWay}" />
                             <Run Text=" (" />
                             <Run Text="{Binding EntityCount, Mode=OneWay}" />
-                            <Run Text=" entities)" />
+                            <Run Text="{DynamicResource ScanExec.EntitiesSuffix}" />
                         </TextBlock>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
             <TextBlock Style="{StaticResource Text.Body}" Margin="0,12,0,0">
-                <Run Text="Entities discovered: " FontWeight="SemiBold" />
+                <Run Text="{DynamicResource ScanExec.EntitiesDiscoveredLabel}" FontWeight="SemiBold" />
                 <Run Text="{Binding State.EntityCount, Mode=OneWay}" />
             </TextBlock>
 
@@ -46,18 +46,18 @@
 
             <!-- Completion summary -->
             <StackPanel Visibility="{Binding IsFinished, Converter={StaticResource BoolToVisibility}}" Margin="0,16,0,0">
-                <TextBlock Text="Scan Completed" Style="{StaticResource Text.PageTitle}" />
+                <TextBlock Text="{DynamicResource ScanExec.ScanCompleted}" Style="{StaticResource Text.PageTitle}" />
                 <TextBlock Style="{StaticResource Text.Body}" Margin="0,8,0,0">
-                    <Run Text="Status: " FontWeight="SemiBold" />
+                    <Run Text="{DynamicResource ScanExec.StatusLabel}" FontWeight="SemiBold" />
                     <Run Text="{Binding State.Status, Mode=OneWay}" />
                 </TextBlock>
                 <TextBlock Style="{StaticResource Text.Body}">
-                    <Run Text="Errors: " FontWeight="SemiBold" />
+                    <Run Text="{DynamicResource ScanExec.ErrorsLabel}" FontWeight="SemiBold" />
                     <Run Text="{Binding State.ErrorCount, Mode=OneWay}" />
                 </TextBlock>
                 <TextBlock Text="{Binding State.ErrorMessage, Mode=OneWay}" Foreground="{StaticResource Risk.High}"
                            Visibility="{Binding HasErrorMessage, Converter={StaticResource BoolToVisibility}}" TextWrapping="Wrap" />
-                <TextBlock Text="Reports:" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,0" />
+                <TextBlock Text="{DynamicResource ScanExec.ReportsLabel}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,0" />
                 <ItemsControl ItemsSource="{Binding State.OutputPaths, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
@@ -69,12 +69,12 @@
 
             <!-- Actions -->
             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                <Button Content="Cancel Scan" Style="{StaticResource App.Button}" Command="{Binding CancelCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource ScanExec.CancelScan}" Style="{StaticResource App.Button}" Command="{Binding CancelCommand}" Margin="0,0,8,0" />
                 <!-- GUI-4 §Step4: "View Results" opens the Results Dashboard; "New Scan" (labelled
                      "Start New Scan" here) returns to Scan Configuration — the two buttons the
                      completion UI is required to offer, both routed through MainViewModel. -->
-                <Button Content="View Results" Style="{StaticResource App.Button}" Command="{Binding ViewResultsCommand}" Margin="0,0,8,0" />
-                <Button Content="Start New Scan" Style="{StaticResource App.Button}" Command="{Binding NewScanCommand}" />
+                <Button Content="{DynamicResource ScanExec.ViewResults}" Style="{StaticResource App.Button}" Command="{Binding ViewResultsCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource ScanExec.StartNewScan}" Style="{StaticResource App.Button}" Command="{Binding NewScanCommand}" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

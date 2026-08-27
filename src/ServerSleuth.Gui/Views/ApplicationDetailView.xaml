@@ -16,18 +16,18 @@
                 <TextBlock Style="{StaticResource Text.Muted}" Text="{Binding ApplicationBoundaryId}" />
 
                 <!-- IDENTITY / RISK -->
-                <TextBlock Text="Risk" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
+                <TextBlock Text="{DynamicResource AppDetail.Risk}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
                 <StackPanel Orientation="Horizontal">
                     <Ellipse Width="10" Height="10" Fill="{Binding RiskSeverity, Converter={StaticResource AggregateSeverityToBrush}}" VerticalAlignment="Center" />
                     <TextBlock Text="{Binding RiskSeverity}" Style="{StaticResource Text.Body}" Margin="6,0,0,0" />
-                    <TextBlock Text=" — Findings: " Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource AppDetail.FindingsLabel}" Style="{StaticResource Text.Muted}" />
                     <TextBlock Text="{Binding FindingCount}" Style="{StaticResource Text.Muted}" />
-                    <TextBlock Text=" — Confidence: " Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource AppDetail.ConfidenceLabel}" Style="{StaticResource Text.Muted}" />
                     <TextBlock Text="{Binding AggregateConfidence}" Style="{StaticResource Text.Muted}" />
                 </StackPanel>
 
-                <TextBlock Text="Top Risks" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
-                <TextBlock Text="No application findings." Style="{StaticResource Text.Muted}"
+                <TextBlock Text="{DynamicResource AppDetail.TopRisks}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBlock Text="{DynamicResource AppDetail.NoFindings}" Style="{StaticResource Text.Muted}"
                            Visibility="{Binding TopRisks.Count, Converter={StaticResource CountToInverseVisibility}}" />
                 <ItemsControl ItemsSource="{Binding TopRisks}">
                     <ItemsControl.ItemTemplate>
@@ -42,14 +42,14 @@
                 </ItemsControl>
 
                 <!-- MIGRATION -->
-                <TextBlock Text="Migration" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
+                <TextBlock Text="{DynamicResource AppDetail.Migration}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
                 <TextBlock Style="{StaticResource Text.Body}">
-                    <Run Text="Status: " FontWeight="SemiBold" />
+                    <Run Text="{DynamicResource AppDetail.StatusLabel}" FontWeight="SemiBold" />
                     <Run Text="{Binding MigrationStatus, Mode=OneWay}" />
                 </TextBlock>
 
-                <TextBlock Text="Issues" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
-                <TextBlock Text="No migration issues detected." Style="{StaticResource Text.Muted}"
+                <TextBlock Text="{DynamicResource AppDetail.Issues}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBlock Text="{DynamicResource AppDetail.NoIssues}" Style="{StaticResource Text.Muted}"
                            Visibility="{Binding Issues.Count, Converter={StaticResource CountToInverseVisibility}}" />
                 <ItemsControl ItemsSource="{Binding Issues}">
                     <ItemsControl.ItemTemplate>
@@ -63,8 +63,8 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <TextBlock Text="Actions" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
-                <TextBlock Text="No migration actions." Style="{StaticResource Text.Muted}"
+                <TextBlock Text="{DynamicResource AppDetail.Actions}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBlock Text="{DynamicResource AppDetail.NoActions}" Style="{StaticResource Text.Muted}"
                            Visibility="{Binding Actions.Count, Converter={StaticResource CountToInverseVisibility}}" />
                 <ItemsControl ItemsSource="{Binding Actions}">
                     <ItemsControl.ItemTemplate>
@@ -78,12 +78,12 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
-                <TextBlock Text="Verification Checks" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBlock Text="{DynamicResource AppDetail.VerificationChecks}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,4" />
                 <ItemsControl ItemsSource="{Binding PreMigrationChecks}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type migVerify:MigrationVerificationCheck}">
                             <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,2">
-                                <Run Text="[Pre] " /><Run Text="{Binding Title, Mode=OneWay}" />
+                                <Run Text="{DynamicResource AppDetail.PrePrefix}" /><Run Text="{Binding Title, Mode=OneWay}" />
                             </TextBlock>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -92,15 +92,15 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate DataType="{x:Type migVerify:MigrationVerificationCheck}">
                             <TextBlock Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,2,0,2">
-                                <Run Text="[Post] " /><Run Text="{Binding Title, Mode=OneWay}" />
+                                <Run Text="{DynamicResource AppDetail.PostPrefix}" /><Run Text="{Binding Title, Mode=OneWay}" />
                             </TextBlock>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
                 <!-- DEPENDENCIES -->
-                <TextBlock Text="Dependencies" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
-                <TextBlock Text="No external dependencies detected." Style="{StaticResource Text.Muted}"
+                <TextBlock Text="{DynamicResource AppDetail.Dependencies}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
+                <TextBlock Text="{DynamicResource AppDetail.NoDependencies}" Style="{StaticResource Text.Muted}"
                            Visibility="{Binding Dependencies.Count, Converter={StaticResource CountToInverseVisibility}}" />
                 <ItemsControl ItemsSource="{Binding Dependencies}">
                     <ItemsControl.ItemTemplate>

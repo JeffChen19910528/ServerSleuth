@@ -5,72 +5,73 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-            <TextBlock Text="Scan Configuration" Style="{StaticResource Text.PageTitle}" />
+            <TextBlock Text="{DynamicResource ScanConfig.Title}" Style="{StaticResource Text.PageTitle}" />
 
             <!-- Target -->
-            <TextBlock Text="Target" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.Target}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
             <StackPanel Orientation="Horizontal">
-                <RadioButton Content="Local" GroupName="TargetKind" IsChecked="{Binding IsLocal, Mode=OneWay}"
+                <RadioButton Content="{DynamicResource ScanConfig.Local}" GroupName="TargetKind" IsChecked="{Binding IsLocal, Mode=OneWay}"
                              Checked="LocalRadioButton_Checked" Margin="0,0,16,0" />
-                <RadioButton Content="Remote" GroupName="TargetKind" IsChecked="{Binding IsRemote, Mode=OneWay}"
+                <RadioButton Content="{DynamicResource ScanConfig.Remote}" GroupName="TargetKind" IsChecked="{Binding IsRemote, Mode=OneWay}"
                              Checked="RemoteRadioButton_Checked" />
             </StackPanel>
 
             <!-- Platform -->
-            <TextBlock Text="Platform" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.Platform}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
             <ComboBox IsEnabled="{Binding IsRemote}" SelectedValuePath="Tag" SelectedValue="{Binding Platform}" Width="200" HorizontalAlignment="Left">
+                <!-- Platform names are proper nouns — not translated. -->
                 <ComboBoxItem Content="Windows" Tag="Windows" />
                 <ComboBoxItem Content="Linux" Tag="Linux" />
             </ComboBox>
 
             <!-- Remote host -->
-            <TextBlock Text="Remote Host" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.RemoteHost}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
             <TextBox Text="{Binding RemoteHost, UpdateSourceTrigger=PropertyChanged}" IsEnabled="{Binding IsRemote}" />
 
             <!-- Connection (derived, read-only) -->
-            <TextBlock Text="Connection" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.Connection}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
             <TextBlock Text="{Binding TransportKind, TargetNullValue='—'}" Style="{StaticResource Text.Muted}" />
 
             <!-- Credentials -->
-            <TextBlock Text="Credentials" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.Credentials}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,12,0,4" />
             <StackPanel IsEnabled="{Binding IsRemote}">
-                <TextBlock Text="Username" Style="{StaticResource Text.Muted}" />
+                <TextBlock Text="{DynamicResource ScanConfig.Username}" Style="{StaticResource Text.Muted}" />
                 <TextBox Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
                 <!-- Windows/WinRM: password + domain + auth mechanism + TLS -->
                 <StackPanel Visibility="{Binding IsWindowsRemote, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="Password" Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource ScanConfig.Password}" Style="{StaticResource Text.Muted}" />
                     <PasswordBox x:Name="PasswordBox" Margin="0,0,0,8" PasswordChanged="PasswordBox_PasswordChanged" />
-                    <TextBlock Text="Domain (optional)" Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource ScanConfig.DomainOptional}" Style="{StaticResource Text.Muted}" />
                     <TextBox Text="{Binding Domain, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
-                    <CheckBox Content="Require TLS" IsChecked="{Binding WinRmUseSsl}" />
+                    <CheckBox Content="{DynamicResource ScanConfig.RequireTls}" IsChecked="{Binding WinRmUseSsl}" />
                 </StackPanel>
 
                 <!-- Linux/SSH: private key path + passphrase env var + host fingerprint -->
                 <StackPanel Visibility="{Binding IsLinuxRemote, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="Private Key Path" Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource ScanConfig.PrivateKeyPath}" Style="{StaticResource Text.Muted}" />
                     <TextBox Text="{Binding SshPrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
-                    <TextBlock Text="Private Key Passphrase Environment Variable (optional)" Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource ScanConfig.PassphraseEnvVar}" Style="{StaticResource Text.Muted}" />
                     <TextBox Text="{Binding SshPrivateKeyPassphraseEnvironmentVariable, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
-                    <TextBlock Text="Expected Host Key Fingerprint" Style="{StaticResource Text.Muted}" />
+                    <TextBlock Text="{DynamicResource ScanConfig.HostFingerprint}" Style="{StaticResource Text.Muted}" />
                     <TextBox Text="{Binding SshHostFingerprint, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
             </StackPanel>
 
             <!-- Output -->
-            <TextBlock Text="Output" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
-            <TextBlock Text="Directory" Style="{StaticResource Text.Muted}" />
+            <TextBlock Text="{DynamicResource ScanConfig.Output}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
+            <TextBlock Text="{DynamicResource ScanConfig.Directory}" Style="{StaticResource Text.Muted}" />
             <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
 
-            <TextBlock Text="Format" Style="{StaticResource Text.Muted}" />
+            <TextBlock Text="{DynamicResource ScanConfig.Format}" Style="{StaticResource Text.Muted}" />
             <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding OutputFormat}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,8">
                 <ComboBoxItem Content="JSON" Tag="Json" />
                 <ComboBoxItem Content="HTML" Tag="Html" />
                 <ComboBoxItem Content="Both" Tag="Both" />
             </ComboBox>
 
-            <CheckBox Content="Overwrite existing report" IsChecked="{Binding OverwritePolicy, Converter={StaticResource OverwriteToBoolConverter}}" Margin="0,0,0,4" />
-            <CheckBox Content="Verbose" IsChecked="{Binding Verbose}" />
+            <CheckBox Content="{DynamicResource ScanConfig.OverwriteExisting}" IsChecked="{Binding OverwritePolicy, Converter={StaticResource OverwriteToBoolConverter}}" Margin="0,0,0,4" />
+            <CheckBox Content="{DynamicResource ScanConfig.Verbose}" IsChecked="{Binding Verbose}" />
 
             <!-- Validation errors -->
             <ItemsControl ItemsSource="{Binding ValidationErrors}" Margin="0,12,0,0">
@@ -83,9 +84,9 @@
 
             <!-- Actions -->
             <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
-                <Button Content="Validate" Style="{StaticResource App.Button}" Command="{Binding ValidateCommand}" Margin="0,0,8,0" />
-                <Button Content="Start Scan" Style="{StaticResource App.Button}" Command="{Binding StartScanCommand}" Margin="0,0,8,0" />
-                <Button Content="Cancel" Style="{StaticResource App.Button}" Command="{Binding CancelCommand}" />
+                <Button Content="{DynamicResource ScanConfig.Validate}" Style="{StaticResource App.Button}" Command="{Binding ValidateCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource ScanConfig.StartScan}" Style="{StaticResource App.Button}" Command="{Binding StartScanCommand}" Margin="0,0,8,0" />
+                <Button Content="{DynamicResource ScanConfig.Cancel}" Style="{StaticResource App.Button}" Command="{Binding CancelCommand}" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

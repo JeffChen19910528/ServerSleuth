@@ -4,6 +4,7 @@
         xmlns:viewModels="clr-namespace:ServerSleuth.Gui.ViewModels"
         xmlns:results="clr-namespace:ServerSleuth.Gui.ViewModels.Results"
         xmlns:views="clr-namespace:ServerSleuth.Gui.Views"
+        xmlns:services="clr-namespace:ServerSleuth.Gui.Services"
         Title="{Binding ApplicationTitle}"
         Height="720" Width="1180" MinHeight="480" MinWidth="800"
         Background="{StaticResource App.Background}">
@@ -32,10 +33,23 @@
 
         <!-- Application title bar -->
         <Border Grid.Row="0" Background="{StaticResource App.HeaderBackground}" Padding="{StaticResource Spacing.Medium}">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding ApplicationTitle}" Style="{StaticResource Text.Title}" />
-                <TextBlock Text="{Binding VersionText}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Bottom" />
-            </StackPanel>
+            <DockPanel LastChildFill="False">
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
+                    <TextBlock Text="{Binding ApplicationTitle}" Style="{StaticResource Text.Title}" />
+                    <TextBlock Text="{Binding VersionText}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Bottom" />
+                </StackPanel>
+
+                <!-- GUI-7: language toggle — reachable from every screen, updates every
+                     {DynamicResource}-bound string in the whole GUI immediately. -->
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                    <Button Content="{DynamicResource Language.English}"
+                            Command="{Binding SetLanguageCommand}" CommandParameter="{x:Static services:GuiLanguage.English}"
+                            Margin="0,0,4,0" Padding="8,2" />
+                    <Button Content="{DynamicResource Language.TraditionalChinese}"
+                            Command="{Binding SetLanguageCommand}" CommandParameter="{x:Static services:GuiLanguage.TraditionalChinese}"
+                            Padding="8,2" />
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <Grid Grid.Row="1">

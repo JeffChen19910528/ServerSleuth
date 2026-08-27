@@ -112,7 +112,7 @@ dotnet run --project src/ServerSleuth.Gui
 
 或直接執行建置產出的 `ServerSleuth.Gui.exe`（`src/ServerSleuth.Gui/bin/Debug/net8.0-windows/`）。
 
-操作流程：
+操作流程總覽：
 
 ```
 掃描設定（本機/遠端、平台、輸出設定）
@@ -131,6 +131,68 @@ dotnet run --project src/ServerSleuth.Gui
 ```
 
 GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作探勘或分析邏輯），畫面上顯示的一律是同一次掃描已完成的結果 —— 切換分頁、選取應用程式、匯出報表都**不會**重新觸發掃描。報表檢視器目前僅以純文字方式呈現 JSON/HTML 內容（不會把 HTML 當成可執行網頁內容渲染，也不會執行任何 JavaScript），這是刻意的安全設計。
+
+### 語言切換
+
+視窗右上角有兩個按鈕：**EN** 與 **中文**。點擊即可在英文與繁體中文之間即時切換整個介面的文字（畫面標籤、按鈕、欄位名稱、左側導覽選單、底部狀態列），不需要重新啟動程式，也不會中斷或重新執行目前的掃描/結果。語言選擇僅保存在目前執行的程式記憶體中，關閉程式後會重設為預設的英文，不會被記住到下次啟動。
+
+> 目前有少部分文字尚未納入語言切換（會固定顯示英文），例如：掃描設定的驗證錯誤訊息、掃描階段/風險等級/遷移狀態這類直接來自後端資料的列舉值文字、以及報表匯出/檢視結果的提示訊息。這是本次功能已知的限制，不影響上述「操作流程總覽」中每個畫面本身的操作。
+
+### 各畫面逐步說明
+
+以下逐一說明開啟 GUI 後會依序看到的每個畫面，以及畫面上每個欄位/按鈕的作用。
+
+**1. 掃描設定（Scan Configuration）** —— 程式啟動後，從左側導覽點選「Scan」（掃描）即可看到這個畫面：
+
+- **Target（掃描目標）**：選擇 `Local`（掃描本機）或 `Remote`（掃描遠端主機）。
+- **Platform（平台）**：選擇遠端主機是 `Windows` 還是 `Linux`（僅在選擇 Remote 時可調整；本機掃描會自動偵測平台）。
+- **Remote Host（遠端主機）**：輸入遠端主機的名稱或 IP（僅遠端掃描需要）。
+- **Connection（連線方式）**：唯讀欄位，依平台自動顯示會使用的連線協定（Windows 用 WinRM，Linux 用 SSH）。
+- **Credentials（認證資訊）**：
+  - `Username`：登入用的使用者名稱。
+  - 若目標是 Windows：`Password`（密碼，輸入框會遮蔽顯示）、`Domain`（網域，選填）、`Require TLS`（是否強制使用 TLS 連線，預設開啟）。
+  - 若目標是 Linux：`Private Key Path`（SSH 私鑰檔案路徑）、`Private Key Passphrase Environment Variable`（存放私鑰密碼短語的環境變數名稱，選填）、`Expected Host Key Fingerprint`（預期的遠端主機金鑰指紋 —— 未知的主機金鑰預設會被拒絕連線，這是防止中間人攻擊的安全機制）。
+- **Output（輸出設定）**：
+  - `Directory`：報表輸出目錄。
+  - `Format`：輸出格式，`JSON`、`HTML` 或 `Both`（兩者皆要）。
+  - `Overwrite existing report`：勾選後才會覆蓋該目錄下既有的報表，預設不覆蓋。
+  - `Verbose`：勾選後掃描過程會顯示更詳細的每個掃描器狀態。
+- 點擊 **Validate（驗證）** 會檢查目前設定是否完整合法，任何錯誤會列在按鈕下方（例如遠端掃描缺少必要欄位）。
+- 點擊 **Start Scan（開始掃描）** 會先自動驗證，驗證通過後立即進入下一個畫面開始掃描；若驗證失敗則停留在本畫面並顯示錯誤訊息。
+- 點擊 **Cancel（取消）** 會清空目前已輸入的驗證狀態與認證資訊（不會影響已輸入的其他欄位）。
+
+**2. 掃描執行（Scan Execution）** —— 點擊「Start Scan」後自動切換到此畫面：
+
+- 畫面上方顯示目前掃描的 **Target** 與平台。
+- **Current Stage（目前階段）**：即時顯示掃描目前所在的階段（例如 Preparing、Discovery）。
+- 掃描過程中會即時列出每個已回報的掃描器狀態與其目前發現的實體數量，並顯示一個不確定進度的進度條（後端本來就沒有精確的百分比可顯示，因此不會顯示假的數字）。
+- 掃描完成後，畫面會顯示 **Scan Completed（掃描已完成）** 區塊，包含：
+  - `Status`：掃描結果狀態（例如 Completed、Partial、Failed、Cancelled）。
+  - `Errors`：掃描過程中的錯誤數量；若有錯誤訊息也會顯示在下方。
+  - `Reports`：已產生的報表檔案路徑清單。
+- 底部按鈕：
+  - **Cancel Scan（取消掃描）**：掃描進行中可隨時點擊以中止掃描。
+  - **View Results（檢視結果）**：掃描完成後點擊，進入「結果儀表板」畫面。
+  - **Start New Scan（開始新掃描）**：不論掃描是否完成，點擊即可返回「掃描設定」畫面重新開始。
+
+**3. 結果儀表板（Results Dashboard）** —— 點擊「View Results」後看到的畫面，也可之後隨時從左側導覽點選「Results」返回（不會重新掃描）：
+
+- 頂部 **Scan Summary（掃描摘要）**：目標、狀態、開始/結束時間、耗時、實體數、錯誤數、涵蓋範圍。
+- **Risk Summary（風險摘要）**：依 Critical / High / Medium / Low / Informational 五個等級分別統計的風險發現數量。
+- **Migration Summary（遷移摘要）**：依 Blocked（已阻擋）/ Needs Remediation（需要修復）/ Ready With Conditions（有條件就緒）/ Ready（已就緒）統計的應用程式數量。
+- **Dependency Summary（依賴摘要）**：依外部依賴類型（資料庫、Redis、外部 API、LDAP、檔案共享等）統計的數量。
+- **Applications（應用程式清單）**：可用文字方塊搜尋應用程式名稱、用下拉選單依風險等級篩選、勾選「Only with issues」只顯示有問題的項目。清單中點擊任一列即可在下方展開該應用程式的詳細資料（見下一節）。
+- 往下依序可展開（點擊區塊標題即可收合/展開）：**Risk Findings（風險發現）**、**Migration Issues（遷移問題）**、**Migration Actions（遷移動作，僅供檢視，不提供執行按鈕）**、**Verification Checks（驗證檢查項目，僅供檢視）**、**Scanner Status（各掃描器執行狀態）**。
+- **Reports（報表）** 區塊：下拉選單選擇已產生的報表檔案，點擊 **Open Report（開啟報表）** 會以純文字方式在下方文字框內顯示該檔案內容（不會重新產生報表，也不會把 HTML 當成網頁執行）。
+- **Export Report（匯出報表）** 區塊：選擇 `Format`（JSON/HTML/Both）、`If a file already exists`（FailIfExists 或 Overwrite）與 `Output directory`，點擊 **Export Report** 進行匯出；成功或失敗都會在下方顯示結果訊息。
+- 畫面右上角 **New Scan（新掃描）** 按鈕：直接返回「掃描設定」畫面開始新的一次掃描。
+
+**4. 應用程式詳細資料（Application Detail）** —— 在結果儀表板的應用程式清單中點選任一列後，會在清單下方展開此區塊：
+
+- **Risk（風險）**：該應用程式的整體風險等級、發現數量與信心水準，以及主要風險清單（Top Risks）。
+- **Migration（遷移）**：該應用程式的遷移狀態，以及相關的 Issues（問題）、Actions（動作，僅供檢視）、Verification Checks（驗證檢查項目，分為遷移前/遷移後，僅供檢視）。
+- **Dependencies（依賴項目）**：該應用程式所依賴的外部資源清單（類型與目標）。
+- 以上所有內容均直接取自該次掃描已完成的結果，不會有任何重新計算或重新掃描的動作。
 
 ## 發布 / 下載即用版本（Release / Distribution）
 

@@ -23,6 +23,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ServerSleuth.Gui\ServerSleuth.Gui.csproj" />
+
+    <!-- Build-order dependency only (see RealWindowRuntimeConfigTests's own doc comment) — that
+         test runs ServerSleuth.Gui.RealWindowHarness.exe as a child process rather than calling
+         into it, so no assembly reference is needed, only the guarantee that `dotnet test` builds
+         it first. -->
+    <ProjectReference Include="..\ServerSleuth.Gui.RealWindowHarness\ServerSleuth.Gui.RealWindowHarness.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
   </ItemGroup>
 
 </Project>

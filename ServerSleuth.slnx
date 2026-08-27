@@ -17,6 +17,7 @@
     <Project Path="test/ServerSleuth.Core.Tests/ServerSleuth.Core.Tests.csproj" />
     <Project Path="test/ServerSleuth.Gui.Tests/ServerSleuth.Gui.Tests.csproj" />
     <Project Path="test/ServerSleuth.Gui.ExecutionHost.Tests/ServerSleuth.Gui.ExecutionHost.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Gui.RealWindowHarness/ServerSleuth.Gui.RealWindowHarness.csproj" />
     <Project Path="test/ServerSleuth.Infrastructure.Tests/ServerSleuth.Infrastructure.Tests.csproj" />
     <Project Path="test/ServerSleuth.Integration.Tests/ServerSleuth.Integration.Tests.csproj" />
     <Project Path="test/ServerSleuth.Linux.Tests/ServerSleuth.Linux.Tests.csproj" />

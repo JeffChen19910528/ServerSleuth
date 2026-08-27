@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using ServerSleuth.Gui.ExecutionHost;
 using ServerSleuth.Gui.Navigation;
 using ServerSleuth.Gui.Services;
@@ -20,10 +21,15 @@ public static class CompositionRoot
     {
         var services = new ServiceCollection();
 
-        services.AddLogging();
+        // A bare AddLogging() registers zero providers — every logged exception would be silently
+        // discarded and GuiExceptionHandler's "See application logs for details" message would be
+        // false. See FileLoggerProvider's own doc comment for why a plain per-user log file (not
+        // Console, not a third-party package) is the right sink here.
+        services.AddLogging(builder => builder.AddProvider(new FileLoggerProvider()));
 
         services.AddSingleton<IApplicationStateService, ApplicationStateService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ILanguageService, LanguageService>();
         services.AddSingleton<IGuiExceptionHandler, GuiExceptionHandler>();
         services.AddSingleton<IScanConfigurationValidator, ScanConfigurationValidator>();
         services.AddSingleton<IScanRequestFactory, ScanRequestFactory>();

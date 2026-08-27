@@ -6,7 +6,17 @@ namespace ServerSleuth.Gui.ViewModels;
 public sealed class NavigationItemViewModel(NavigationPage page, string label) : ObservableObject
 {
     public NavigationPage Page { get; } = page;
-    public string Label { get; } = label;
+
+    private string _label = label;
+
+    /// <summary>Settable (not just constructor-initialized) so GUI-7's language toggle can
+    /// update the already-displayed nav item text in place without rebuilding the collection
+    /// and losing <see cref="IsSelected"/>.</summary>
+    public string Label
+    {
+        get => _label;
+        set => SetProperty(ref _label, value);
+    }
 
     private bool _isSelected;
     public bool IsSelected

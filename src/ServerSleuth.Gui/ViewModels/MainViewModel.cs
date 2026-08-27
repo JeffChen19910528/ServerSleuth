@@ -18,19 +18,21 @@ public sealed class MainViewModel : ObservableObject
 {
     /// <summary>The deterministic, ordered page list GUI-1 §4/§9 requires — a plain array, never
     /// a <c>Dictionary</c>/<c>HashSet</c> whose enumeration order is not contractually
-    /// guaranteed.</summary>
-    private static readonly (NavigationPage Page, string Label, string Description)[] Pages =
+    /// guaranteed. GUI-7: label/description are now resource KEYS (resolved through
+    /// <see cref="_languageService"/> at the point of use), not literal English text.</summary>
+    private static readonly (NavigationPage Page, string LabelKey, string DescriptionKey)[] Pages =
     [
-        (NavigationPage.Dashboard, "Dashboard", "An overview of the current target and its most recent scan will appear here."),
-        (NavigationPage.Scan, "Scan", "Scan configuration and target selection will appear here."),
-        (NavigationPage.Results, "Results", "Discovered entities and their relationships will appear here."),
-        (NavigationPage.Migration, "Migration", "Risk findings and the migration assessment will appear here."),
-        (NavigationPage.Reports, "Reports", "Generated reports and export options will appear here."),
-        (NavigationPage.Settings, "Settings", "Application preferences will appear here.")
+        (NavigationPage.Dashboard, "Nav.Dashboard.Label", "Nav.Dashboard.Description"),
+        (NavigationPage.Scan, "Nav.Scan.Label", "Nav.Scan.Description"),
+        (NavigationPage.Results, "Nav.Results.Label", "Nav.Results.Description"),
+        (NavigationPage.Migration, "Nav.Migration.Label", "Nav.Migration.Description"),
+        (NavigationPage.Reports, "Nav.Reports.Label", "Nav.Reports.Description"),
+        (NavigationPage.Settings, "Nav.Settings.Label", "Nav.Settings.Description")
     ];
 
     private readonly INavigationService _navigationService;
     private readonly IApplicationStateService _applicationStateService;
+    private readonly ILanguageService _languageService;
     private readonly ScanConfigurationViewModel _scanConfigurationViewModel;
     private readonly ScanExecutionViewModel _scanExecutionViewModel;
 
@@ -61,7 +63,8 @@ public sealed class MainViewModel : ObservableObject
     public MainViewModel(
         INavigationService navigationService, IApplicationStateService applicationStateService,
         ScanConfigurationViewModel scanConfigurationViewModel, ScanExecutionViewModel scanExecutionViewModel,
-        IGuiReportExportService? reportExportService = null, IGuiReportViewerService? reportViewerService = null)
+        IGuiReportExportService? reportExportService = null, IGuiReportViewerService? reportViewerService = null,
+        ILanguageService? languageService = null)
     {
         _navigationService = navigationService;
         _applicationStateService = applicationStateService;
@@ -69,9 +72,10 @@ public sealed class MainViewModel : ObservableObject
         _scanExecutionViewModel = scanExecutionViewModel;
         _reportExportService = reportExportService;
         _reportViewerService = reportViewerService;
+        _languageService = languageService ?? new LanguageService();
 
         NavigationItems = new ObservableCollection<NavigationItemViewModel>(
-            Pages.Select(p => new NavigationItemViewModel(p.Page, p.Label)));
+            Pages.Select(p => new NavigationItemViewModel(p.Page, _languageService.T(p.LabelKey))));
 
         NavigateCommand = new RelayCommand(parameter =>
         {
@@ -81,8 +85,17 @@ public sealed class MainViewModel : ObservableObject
             }
         });
 
+        SetLanguageCommand = new RelayCommand(parameter =>
+        {
+            if (parameter is GuiLanguage language)
+            {
+                _languageService.SetLanguage(language);
+            }
+        });
+
         _navigationService.CurrentPageChanged += (_, page) => ApplyCurrentPage(page);
         _applicationStateService.StateChanged += (_, _) => RefreshStatusText();
+        _languageService.LanguageChanged += (_, _) => ApplyLanguageChange();
 
         _scanConfigurationViewModel.ScanRequested += (_, args) =>
         {
@@ -115,6 +128,12 @@ public sealed class MainViewModel : ObservableObject
     public ObservableCollection<NavigationItemViewModel> NavigationItems { get; }
 
     public RelayCommand NavigateCommand { get; }
+
+    /// <summary>GUI-7: takes a <see cref="GuiLanguage"/> as its command parameter — bound from
+    /// the two language-toggle buttons in <c>MainWindow</c>'s header.</summary>
+    public RelayCommand SetLanguageCommand { get; }
+
+    public GuiLanguage CurrentLanguage => _languageService.CurrentLanguage;
 
     private IPageViewModel _currentPageViewModel = null!;
 
@@ -174,17 +193,36 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
-        var (_, label, description) = Pages.Single(p => p.Page == page);
-        CurrentPageViewModel = new PlaceholderPageViewModel(page, label, description);
+        var (_, labelKey, descriptionKey) = Pages.Single(p => p.Page == page);
+        CurrentPageViewModel = new PlaceholderPageViewModel(page, _languageService.T(labelKey), _languageService.T(descriptionKey));
     }
 
     private void RefreshStatusText()
     {
         var state = _applicationStateService.Current;
-        var targetText = state.Target?.DisplayName ?? state.Target?.Id ?? "No target selected";
-        var scanText = state.IsScanRunning ? "Scanning…" : "Idle";
+        var targetText = state.Target?.DisplayName ?? state.Target?.Id ?? _languageService.T("Status.NoTargetSelected");
+        var scanText = state.IsScanRunning ? _languageService.T("Status.Scanning") : _languageService.T("Status.Idle");
         StatusText = state.LastErrorMessage is { Length: > 0 }
-            ? $"Error: {state.LastErrorMessage}"
+            ? $"{_languageService.T("Status.ErrorPrefix")}{state.LastErrorMessage}"
             : $"{targetText} — {scanText}";
+    }
+
+    /// <summary>GUI-7: re-resolves every ViewModel-owned (i.e. not a plain XAML
+    /// <c>{DynamicResource}</c>) string against the new language — nav item labels, the
+    /// currently-shown placeholder page (if any), and the status footer. Never rebuilds
+    /// <see cref="ScanConfigurationViewModel"/>/<see cref="ScanExecutionViewModel"/>/the results
+    /// dashboard themselves, so no in-progress scan/results state is lost.</summary>
+    private void ApplyLanguageChange()
+    {
+        OnPropertyChanged(nameof(CurrentLanguage));
+
+        foreach (var item in NavigationItems)
+        {
+            var (_, labelKey, _) = Pages.Single(p => p.Page == item.Page);
+            item.Label = _languageService.T(labelKey);
+        }
+
+        ApplyCurrentPage(_navigationService.CurrentPage);
+        RefreshStatusText();
     }
 }

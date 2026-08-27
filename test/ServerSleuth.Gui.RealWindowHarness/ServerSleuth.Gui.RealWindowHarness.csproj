@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Not a unit test project — a small, standalone WPF executable used ONLY as an out-of-process
+       harness by RealWindowRuntimeConfigTests (in ServerSleuth.Gui.Tests), which runs it as a
+       child process and asserts on its exit code/output. It exists because the specific defect it
+       guards against (see App.xaml.cs's static constructor doc comment: WPF's binding engine
+       breaking under InvariantGlobalization the moment a real bound control attaches to layout)
+       is invisible to an in-process xUnit test — the VSTest host process does not itself set
+       InvariantGlobalization, so CultureInfo works there regardless of whether the real fix is
+       present. This project deliberately mirrors ServerSleuth.Gui's own InvariantGlobalization
+       setting so the child process actually reproduces the real runtime configuration. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ServerSleuth.Gui\ServerSleuth.Gui.csproj" />
+  </ItemGroup>
+
+</Project>

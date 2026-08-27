@@ -132,6 +132,48 @@ dotnet run --project src/ServerSleuth.Gui
 
 GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作探勘或分析邏輯），畫面上顯示的一律是同一次掃描已完成的結果 —— 切換分頁、選取應用程式、匯出報表都**不會**重新觸發掃描。報表檢視器目前僅以純文字方式呈現 JSON/HTML 內容（不會把 HTML 當成可執行網頁內容渲染，也不會執行任何 JavaScript），這是刻意的安全設計。
 
+## 發布 / 下載即用版本（Release / Distribution）
+
+如果不想自行建置，可以用 `build-release.ps1` 產生開箱即用的單一執行檔（自我包含、免安裝 .NET 執行環境）：
+
+```powershell
+.\build-release.ps1
+```
+
+會產出：
+
+```
+dist/
+├── ServerSleuth-Windows-x64/
+│   └── ServerSleuth.exe      # WPF 桌面 GUI（Windows x64，自我包含單一執行檔）
+├── ServerSleuth-Linux-x64/
+│   └── ServerSleuth           # 命令列工具（Linux x64，自我包含單一執行檔）
+└── SHA256SUMS.txt             # 兩個執行檔的 SHA-256 校驗碼
+```
+
+### Windows 使用者
+
+1. 下載 `ServerSleuth.exe`。
+2. 雙擊執行即可 —— 這是自我包含（self-contained）的單一執行檔，已實際驗證可在**未安裝 .NET 執行環境、也未含任何原始碼/建置產物**的乾淨資料夾中直接啟動。
+
+### Linux 使用者
+
+1. 下載 `ServerSleuth`。
+2. 賦予執行權限：
+
+   ```bash
+   chmod +x ServerSleuth
+   ```
+
+3. 執行：
+
+   ```bash
+   ./ServerSleuth --help
+   ./ServerSleuth scan --output ./serversleuth-report
+   ```
+
+   這同樣是自我包含的單一執行檔，已實際在獨立的乾淨目錄（不依賴原始碼樹、`bin/`/`obj/`、NuGet 快取或 .NET SDK）中驗證過 `--help` 與一次完整的本機掃描（含 `report.json`/`report.html` 產出）皆可正常執行。
+
 ## 輸出內容
 
 一次掃描完成後，輸出目錄中會包含：

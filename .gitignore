@@ -3,6 +3,9 @@ bin/
 obj/
 *.user
 
+## Phase 11A release packaging output (build artifact, not source)
+dist/
+
 ## Rider / VS
 .vs/
 .idea/

@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ServerSleuth.Analysis/ServerSleuth.Analysis.csproj" />
+    <Project Path="src/ServerSleuth.Cli/ServerSleuth.Cli.csproj" />
+    <Project Path="src/ServerSleuth.Core/ServerSleuth.Core.csproj" />
+    <Project Path="src/ServerSleuth.Gui/ServerSleuth.Gui.csproj" />
+    <Project Path="src/ServerSleuth.Gui.Contracts/ServerSleuth.Gui.Contracts.csproj" />
+    <Project Path="src/ServerSleuth.Gui.ExecutionHost/ServerSleuth.Gui.ExecutionHost.csproj" />
+    <Project Path="src/ServerSleuth.Infrastructure/ServerSleuth.Infrastructure.csproj" />
+    <Project Path="src/ServerSleuth.Linux/ServerSleuth.Linux.csproj" />
+    <Project Path="src/ServerSleuth.Reporting/ServerSleuth.Reporting.csproj" />
+    <Project Path="src/ServerSleuth.Windows/ServerSleuth.Windows.csproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/ServerSleuth.Analysis.Tests/ServerSleuth.Analysis.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Cli.Tests/ServerSleuth.Cli.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Core.Tests/ServerSleuth.Core.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Gui.Tests/ServerSleuth.Gui.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Gui.ExecutionHost.Tests/ServerSleuth.Gui.ExecutionHost.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Infrastructure.Tests/ServerSleuth.Infrastructure.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Integration.Tests/ServerSleuth.Integration.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Linux.Tests/ServerSleuth.Linux.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Reporting.Tests/ServerSleuth.Reporting.Tests.csproj" />
+    <Project Path="test/ServerSleuth.Windows.Tests/ServerSleuth.Windows.Tests.csproj" />
+  </Folder>
+</Solution>

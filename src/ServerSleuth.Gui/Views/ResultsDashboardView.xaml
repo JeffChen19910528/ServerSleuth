@@ -1,0 +1,333 @@
+<UserControl x:Class="ServerSleuth.Gui.Views.ResultsDashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:results="clr-namespace:ServerSleuth.Gui.ViewModels.Results"
+             xmlns:models="clr-namespace:ServerSleuth.Gui.Models;assembly=ServerSleuth.Gui.Contracts"
+             xmlns:consolidation="clr-namespace:ServerSleuth.Analysis.Migration.Consolidation;assembly=ServerSleuth.Analysis"
+             xmlns:migModels="clr-namespace:ServerSleuth.Analysis.Migration.Models;assembly=ServerSleuth.Analysis"
+             xmlns:migActions="clr-namespace:ServerSleuth.Analysis.Migration.Actions;assembly=ServerSleuth.Analysis"
+             xmlns:migVerify="clr-namespace:ServerSleuth.Analysis.Migration.Verification;assembly=ServerSleuth.Analysis"
+             xmlns:riskModels="clr-namespace:ServerSleuth.Analysis.Risk.Models;assembly=ServerSleuth.Analysis"
+             xmlns:views="clr-namespace:ServerSleuth.Gui.Views">
+
+    <!-- GUI-4 §Step5-16: the Results Dashboard — presentation only. Every binding below reads a
+         property already computed by ResultsDashboardViewModel (itself a pure projection of an
+         already-completed ScanExecutionState); nothing in this file can trigger a scan, a
+         rebuild, or a pipeline stage of any kind. -->
+    <UserControl.Resources>
+        <DataTemplate DataType="{x:Type results:ApplicationDetailViewModel}">
+            <views:ApplicationDetailView />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+            <DockPanel LastChildFill="False">
+                <TextBlock Text="Scan Results" Style="{StaticResource Text.PageTitle}" DockPanel.Dock="Left" />
+                <!-- GUI-5 §3: dashboard-level "New Scan" — routes through the SAME existing
+                     NavigationService/ScanExecutionViewModel flow GUI-3 already established. -->
+                <Button Content="New Scan" Command="{Binding NewScanCommand}" DockPanel.Dock="Right" VerticalAlignment="Center" />
+            </DockPanel>
+
+            <!-- SCAN SUMMARY -->
+            <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                <StackPanel>
+                    <TextBlock Text="Scan Summary" Style="{StaticResource Dashboard.SectionTitle}" />
+                    <WrapPanel>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Target: " FontWeight="SemiBold" /><Run Text="{Binding TargetDisplayName, Mode=OneWay}" />
+                            <Run Text=" (" /><Run Text="{Binding TargetPlatform, Mode=OneWay}" /><Run Text=")" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Status: " FontWeight="SemiBold" /><Run Text="{Binding Status, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Started: " FontWeight="SemiBold" /><Run Text="{Binding StartedAt, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Finished: " FontWeight="SemiBold" /><Run Text="{Binding FinishedAt, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Duration: " FontWeight="SemiBold" /><Run Text="{Binding Duration, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Entities: " FontWeight="SemiBold" /><Run Text="{Binding EntityCount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Errors: " FontWeight="SemiBold" /><Run Text="{Binding ErrorCount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="Coverage: " FontWeight="SemiBold" /><Run Text="{Binding Coverage, Mode=OneWay}" />
+                        </TextBlock>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Result not yet available (skill.md GUI-4 §19: "no results" state) -->
+            <TextBlock Text="No results are available for this scan yet." Style="{StaticResource Text.Muted}"
+                       Visibility="{Binding HasNoResults, Converter={StaticResource BoolToVisibility}}"
+                       Margin="0,16,0,0" />
+
+            <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
+
+                <!-- RISK SUMMARY -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Risk Summary" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Critical}" VerticalAlignment="Center" />
+                                <TextBlock Text=" Critical: " Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding CriticalCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.High}" VerticalAlignment="Center" />
+                                <TextBlock Text=" High: " Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding HighCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Medium}" VerticalAlignment="Center" />
+                                <TextBlock Text=" Medium: " Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding MediumCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Low}" VerticalAlignment="Center" />
+                                <TextBlock Text=" Low: " Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding LowCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Info}" VerticalAlignment="Center" />
+                                <TextBlock Text=" Informational: " Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding InfoCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- MIGRATION SUMMARY -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Migration Summary" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                                <Run Text="Blocked: " FontWeight="SemiBold" /><Run Text="{Binding BlockedApplicationCount}" />
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                                <Run Text="Needs Remediation: " FontWeight="SemiBold" /><Run Text="{Binding NeedsRemediationApplicationCount}" />
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                                <Run Text="Ready With Conditions: " FontWeight="SemiBold" /><Run Text="{Binding ReadyWithConditionsApplicationCount}" />
+                            </TextBlock>
+                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                                <Run Text="Ready: " FontWeight="SemiBold" /><Run Text="{Binding ReadyApplicationCount}" />
+                            </TextBlock>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- DEPENDENCY SUMMARY -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Dependency Summary" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="No external dependencies detected." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding DependencyGroups.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding DependencyGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type consolidation:MigrationDependencyGroup}">
+                                    <TextBlock Style="{StaticResource Text.Body}" Margin="0,2,0,2">
+                                        <Run Text="{Binding Type, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=": " />
+                                        <Run Text="{Binding Dependencies.Count, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- APPLICATIONS -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="Applications" Style="{StaticResource Dashboard.SectionTitle}" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBox Width="220" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="Search application name" Margin="0,0,8,0" />
+                            <ComboBox Width="140" Margin="0,0,8,0"
+                                      ItemsSource="{Binding Source={x:Static results:ResultsDashboardViewModel.SeverityFilterOptions}}"
+                                      SelectedItem="{Binding SeverityFilter}" />
+                            <CheckBox Content="Only with issues" IsChecked="{Binding OnlyWithIssues}" VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <TextBlock Text="No applications were found for this scan." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding FilteredApplications.Count, Converter={StaticResource CountToInverseVisibility}}" />
+
+                        <ListView ItemsSource="{Binding FilteredApplications}"
+                                  SelectedItem="{Binding SelectedApplication, Mode=TwoWay}"
+                                  MaxHeight="280">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Application" Width="220" DisplayMemberBinding="{Binding ApplicationName}" />
+                                    <GridViewColumn Header="Migration Status" Width="130" DisplayMemberBinding="{Binding MigrationStatus}" />
+                                    <GridViewColumn Header="Risk" Width="90" DisplayMemberBinding="{Binding RiskSeverity}" />
+                                    <GridViewColumn Header="Confidence" Width="90" DisplayMemberBinding="{Binding Confidence}" />
+                                    <GridViewColumn Header="Issues" Width="60" DisplayMemberBinding="{Binding IssueCount}" />
+                                    <GridViewColumn Header="Dependencies" Width="90" DisplayMemberBinding="{Binding DependencyCount}" />
+                                    <GridViewColumn Header="Entities" Width="70" DisplayMemberBinding="{Binding AffectedEntityCount}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <!-- SELECTED APPLICATION DETAIL — a null Content renders nothing (no
+                     ContentTemplate applies), so no separate visibility converter is needed. -->
+                <ContentControl Content="{Binding SelectedApplicationDetail}" Margin="0,16,0,0" />
+
+                <!-- RISK FINDINGS -->
+                <Expander Header="Risk Findings" Margin="0,16,0,0" IsExpanded="False">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="No risk findings." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding TopRisks.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding TopRisks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type riskModels:RiskFinding}">
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,2,0,2">
+                                        <Run Text="{Binding Severity, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=" — " /><Run Text="{Binding Title, Mode=OneWay}" />
+                                        <Run Text=" (" /><Run Text="{Binding RuleId, Mode=OneWay}" /><Run Text=")" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Expander>
+
+                <!-- MIGRATION ISSUES -->
+                <Expander Header="Migration Issues" Margin="0,8,0,0" IsExpanded="False">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="No migration issues detected." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding AllMigrationIssues.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding AllMigrationIssues}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type migModels:MigrationIssue}">
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,2,0,2">
+                                        <Run Text="{Binding Severity, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=" — " /><Run Text="{Binding Title, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Expander>
+
+                <!-- MIGRATION ACTIONS (declarative only — no Execute button anywhere) -->
+                <Expander Header="Migration Actions" Margin="0,8,0,0" IsExpanded="False">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="No migration actions." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding Actions.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding Actions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type migActions:MigrationAction}">
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,2,0,2">
+                                        <Run Text="{Binding Priority, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=" — " /><Run Text="{Binding Title, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Expander>
+
+                <!-- VERIFICATION CHECKS (declarative only — no Run button anywhere) -->
+                <Expander Header="Verification Checks" Margin="0,8,0,0" IsExpanded="False">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="Pre-Migration" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <ItemsControl ItemsSource="{Binding PreMigrationChecks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type migVerify:MigrationVerificationCheck}">
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,2,0,2" Text="{Binding Title, Mode=OneWay}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="Post-Migration" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,0" />
+                        <ItemsControl ItemsSource="{Binding PostMigrationChecks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type migVerify:MigrationVerificationCheck}">
+                                    <TextBlock Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,2,0,2" Text="{Binding Title, Mode=OneWay}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Expander>
+
+                <!-- SCANNER STATUS -->
+                <Expander Header="Scanner Status" Margin="0,8,0,0" IsExpanded="False">
+                    <ItemsControl ItemsSource="{Binding ScannerStatuses}" Margin="0,8,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:ScannerProgressInfo}">
+                                <TextBlock Style="{StaticResource Text.Muted}" Margin="0,2,0,2">
+                                    <Run Text="{Binding ScannerId, Mode=OneWay}" />
+                                    <Run Text=" — " /><Run Text="{Binding Status, Mode=OneWay}" />
+                                    <Run Text=" (" /><Run Text="{Binding EntityCount, Mode=OneWay}" /><Run Text=" entities)" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+
+                <!-- REPORT ARTIFACTS / GUI-5 §2: REPORT VIEWER (an already-generated file's raw
+                     text only — never a re-render, never a second domain deserialization) -->
+                <Expander Header="Reports" Margin="0,8,0,8" IsExpanded="True">
+                    <StackPanel Margin="0,8,0,0">
+                        <TextBlock Text="No report files were written." Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding ReportFileNames.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <StackPanel Orientation="Horizontal" Visibility="{Binding ReportFileNames.Count, Converter={StaticResource CountToVisibility}}">
+                            <ComboBox Width="180" Margin="0,0,8,0" ItemsSource="{Binding ReportFileNames}" SelectedItem="{Binding SelectedReportFileName}" />
+                            <!-- Declarative only — reads the file that's already on disk; never regenerates it and never starts a scan. -->
+                            <Button Content="Open Report" Command="{Binding OpenReportCommand}" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ReportViewResult.ErrorMessage}" Style="{StaticResource Text.Muted}" Margin="0,4,0,0"
+                                   Visibility="{Binding ReportViewResult.Success, Converter={StaticResource InverseBoolToVisibility}, FallbackValue=Collapsed}" />
+                        <TextBox Text="{Binding ReportViewResult.Content, Mode=OneWay}" IsReadOnly="True" TextWrapping="NoWrap"
+                                  FontFamily="Consolas" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"
+                                  MaxHeight="260" Margin="0,4,0,0"
+                                  Visibility="{Binding ReportViewResult.Success, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}" />
+                    </StackPanel>
+                </Expander>
+
+                <!-- GUI-5 §1: REPORT EXPORT — invokes ReportArtifactFactory/IReportExporter via
+                     IGuiReportExportService only; format/overwrite policy chosen here are
+                     independent of whatever Scan Configuration originally used. -->
+                <Expander Header="Export Report" Margin="0,8,0,16" IsExpanded="False">
+                    <StackPanel Margin="0,8,0,0">
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,16,8">
+                                <TextBlock Text="Format" Style="{StaticResource Text.Muted}" />
+                                <ComboBox Width="120" ItemsSource="{Binding Source={x:Static results:ResultsDashboardViewModel.ExportFormatOptions}}"
+                                          SelectedItem="{Binding ExportFormat}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,16,8">
+                                <TextBlock Text="If a file already exists" Style="{StaticResource Text.Muted}" />
+                                <ComboBox Width="160" ItemsSource="{Binding Source={x:Static results:ResultsDashboardViewModel.OverwritePolicyOptions}}"
+                                          SelectedItem="{Binding ExportOverwritePolicy}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,16,8">
+                                <TextBlock Text="Output directory" Style="{StaticResource Text.Muted}" />
+                                <TextBox Width="320" Text="{Binding ExportDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </WrapPanel>
+                        <Button Content="Export Report" Command="{Binding ExportReportCommand}" HorizontalAlignment="Left" />
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding LastExportResult.Success, Converter={StaticResource BoolToVisibility}, FallbackValue=Collapsed}">
+                            <Run Text="Exported: " FontWeight="SemiBold" />
+                            <Run Text="{Binding LastExportedFileNamesText, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding LastExportResult.ErrorMessage}" Style="{StaticResource Text.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                                   Visibility="{Binding LastExportResult.Success, Converter={StaticResource InverseBoolToVisibility}, FallbackValue=Collapsed}" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

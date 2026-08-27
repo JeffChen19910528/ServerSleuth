@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Multi-targeted rather than EnableWindowsTargeting: NuGet's project-reference
+       compatibility check (NU1201) rejects a plain "net8.0" project referencing the
+       net8.0-windows-only ServerSleuth.Windows project outright, regardless of that MSBuild
+       property (it only helps with compiling against Windows Desktop SDK APIs, not restoring an
+       incompatible ProjectReference). Building both net8.0-windows and net8.0 is the correct,
+       standard approach for a cross-platform app with one optional Windows-only component:
+       the net8.0-windows build is what actually ships/runs on Windows (with Windows discovery
+       compiled in); the plain net8.0 build is what ships/runs on Linux. Platform SELECTION still
+       happens once, at runtime, in Composition/CompositionRoot.cs — see skill.md (Phase 10A) §4
+       — this TFM split only controls which build even has the Windows-only capability compiled
+       in, matching how the OS itself already splits ServerSleuth.Windows vs. ServerSleuth.Linux. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>serversleuth</AssemblyName>
+    <RootNamespace>ServerSleuth.Cli</RootNamespace>
+    <TargetFrameworks>net8.0-windows;net8.0</TargetFrameworks>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>10.0.0</Version>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <DefineConstants>$(DefineConstants);SERVERSLEUTH_WINDOWS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ServerSleuth.Core\ServerSleuth.Core.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Infrastructure\ServerSleuth.Infrastructure.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Linux\ServerSleuth.Linux.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Analysis\ServerSleuth.Analysis.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Reporting\ServerSleuth.Reporting.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <ProjectReference Include="..\ServerSleuth.Windows\ServerSleuth.Windows.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ServerSleuth.Cli.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+  </ItemGroup>
+
+</Project>

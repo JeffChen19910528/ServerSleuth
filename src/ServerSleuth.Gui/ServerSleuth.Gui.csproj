@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GUI-1: WPF was chosen over Avalonia/WinUI 3/MAUI — see ARCHITECTURE.md's GUI-1 addendum
+       for the full decision record. Summary: the GUI does not need to be cross-platform (only
+       the discovery/scanning code the GUI merely CONSUMES is cross-platform — the existing
+       ServerSleuth.Cli itself already only ships its Windows-capable build from a Windows host),
+       this whole solution is already built/run/tested on Windows throughout, and WPF ships
+       in-box with the .NET SDK's Windows Desktop workload (already installed and used nowhere
+       else in this repo, but present, per `dotnet new list wpf` confirming the templates exist)
+       with zero additional NuGet packages required for the framework itself — the smallest
+       possible dependency footprint of any candidate. Single TFM, not multi-targeted like
+       ServerSleuth.Cli, because WPF itself has no non-Windows build to multi-target for. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>ServerSleuth.Gui</AssemblyName>
+    <RootNamespace>ServerSleuth.Gui</RootNamespace>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>10.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- GUI-1 §Critical Dependency Rule: only domain/application-facing abstractions — never
+         Infrastructure/Windows/Linux (no registry/filesystem/process/network API reachable from
+         the GUI), never Reporting (no report generation exists in this phase), never Cli (a
+         separate entry point, not a library the GUI should depend on). -->
+    <ProjectReference Include="..\ServerSleuth.Core\ServerSleuth.Core.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Analysis\ServerSleuth.Analysis.csproj" />
+
+    <!-- GUI-3: ServerSleuth.Gui.Contracts holds only the DTOs/interfaces both this project and
+         ServerSleuth.Gui.ExecutionHost need to share (ScanRequest, ScanCredentialInput,
+         ScanProgressState, ScanCompletionState, IGuiScanExecutor, ...) — never a platform type,
+         never a scanner, never a transport. See its own .csproj comment for why it exists as a
+         separate project (breaking what would otherwise be a circular ServerSleuth.Gui ↔
+         ServerSleuth.Gui.ExecutionHost reference). -->
+    <ProjectReference Include="..\ServerSleuth.Gui.Contracts\ServerSleuth.Gui.Contracts.csproj" />
+
+    <!-- GUI-3: the SOLE reference to the composition/execution boundary that IS allowed to know
+         about Infrastructure/Windows/Reporting — see ServerSleuth.Gui.ExecutionHost's own
+         .csproj comment for the full rationale. This reference resolves IGuiScanExecutor's real
+         implementation for CompositionRoot.cs; because no source file in THIS project ever
+         imports an Infrastructure/Windows/Reporting type directly, none of those assemblies ever
+         becomes a direct AssemblyRef of the compiled ServerSleuth.Gui.dll itself (mechanically
+         reconfirmed by NoDirectPlatformAccessTests, which still asserts zero direct reference to
+         any of the five forbidden assemblies by name). -->
+    <ProjectReference Include="..\ServerSleuth.Gui.ExecutionHost\ServerSleuth.Gui.ExecutionHost.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ServerSleuth.Gui.Tests" />
+  </ItemGroup>
+
+  <!-- The WPF SDK's implicit item globbing only recognizes a root-level "App.xaml" as the
+       ApplicationDefinition (the item that gets the generated Main() entry point) — this
+       project deliberately keeps App.xaml under App/ (per GUI-1's chosen folder structure), so
+       the item must be reclassified explicitly. -->
+  <ItemGroup>
+    <Page Remove="App\App.xaml" />
+    <ApplicationDefinition Include="App\App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+  </ItemGroup>
+
+</Project>

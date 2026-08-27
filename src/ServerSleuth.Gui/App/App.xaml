@@ -1,0 +1,14 @@
+<Application x:Class="ServerSleuth.Gui.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- No StartupUri: startup is handled explicitly in App.xaml.cs's OnStartup, so the
+         composition root can be built and MainViewModel injected into MainWindow rather than
+         relying on WPF's parameterless-constructor-only StartupUri convention. -->
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/ServerSleuth.Gui;component/Resources/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

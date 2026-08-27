@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GUI-3: the small, shared DTO/interface project that lets ServerSleuth.Gui (the WPF
+       ViewModels/Views) and ServerSleuth.Gui.ExecutionHost (the composition/execution boundary
+       that IS allowed to reference Infrastructure/Windows/Reporting) both compile against the
+       SAME ScanRequest/ScanCredentialInput/ScanProgressState/ScanCompletionState/
+       IGuiScanExecutor shapes without a circular project reference between them (Gui →
+       ExecutionHost, ExecutionHost → Contracts, Gui → Contracts — a DAG, never a cycle).
+       Namespaces are still ServerSleuth.Gui.Models/ServerSleuth.Gui.Services (a namespace is not
+       required to match its assembly's own name) specifically so every existing `using
+       ServerSleuth.Gui.Models;`/`using ServerSleuth.Gui.Services;` statement in
+       ServerSleuth.Gui/ServerSleuth.Gui.Tests continues to compile completely unchanged — only
+       the physical file location and which .csproj compiles it changed. References
+       ServerSleuth.Core (ScanTarget/ScannerStatus) and, as of GUI-4, ServerSleuth.Analysis —
+       ScanCompletionState needs to carry the real, already-computed
+       ServerSleuth.Analysis.Orchestration.ScanPipelineResult (Risk Aggregation + the Migration
+       Assessment Report) from ServerSleuth.Gui.ExecutionHost through to ServerSleuth.Gui's
+       Results Dashboard, so both sides of that boundary need to see the same type. Analysis is
+       an allowed GUI dependency (ServerSleuth.Gui itself has referenced it since GUI-1) — this
+       is not a new forbidden-assembly exposure, only widening which project in the Gui/Contracts/
+       ExecutionHost trio compiles against it. Never Windows/Linux/Infrastructure/Cli/Reporting. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>ServerSleuth.Gui</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>10.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ServerSleuth.Core\ServerSleuth.Core.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Analysis\ServerSleuth.Analysis.csproj" />
+  </ItemGroup>
+
+</Project>

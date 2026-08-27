@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- GUI-3: the ONLY place ServerSleuth.Gui's own compiled output is allowed to reach
+       ServerSleuth.Infrastructure/ServerSleuth.Windows/ServerSleuth.Reporting — see
+       ARCHITECTURE.md's GUI-3 addendum. ServerSleuth.Gui.csproj takes exactly one
+       ProjectReference to THIS project (to resolve IGuiScanExecutor's real implementation for
+       its composition root); because Gui's own source code never directly imports an
+       Infrastructure/Windows/Reporting type, the C# compiler never emits an AssemblyRef to any
+       of them into ServerSleuth.Gui.dll's own metadata — verified mechanically by
+       NoDirectPlatformAccessTests, unchanged from GUI-1/GUI-2. This project itself is exactly
+       what ServerSleuth.Cli's own CompositionRoot/ScanCommand already are: a composition/
+       execution boundary that IS allowed to know about every platform-specific project, because
+       it is not "the GUI" in the sense that boundary protects (no XAML, no ViewModel, no View —
+       only the IGuiScanExecutor implementation and its own composition helpers). Single TFM
+       (net8.0-windows), matching ServerSleuth.Gui itself — WPF only ever ships/runs on Windows
+       in this repository, so (unlike ServerSleuth.Cli) there is no plain net8.0 build to also
+       produce, and ServerSleuth.Windows can be referenced unconditionally. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>ServerSleuth.Gui.ExecutionHost</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Version>10.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ServerSleuth.Core\ServerSleuth.Core.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Analysis\ServerSleuth.Analysis.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Infrastructure\ServerSleuth.Infrastructure.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Windows\ServerSleuth.Windows.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Linux\ServerSleuth.Linux.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Reporting\ServerSleuth.Reporting.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Gui.Contracts\ServerSleuth.Gui.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.11" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ServerSleuth.Gui.ExecutionHost.Tests" />
+  </ItemGroup>
+
+</Project>

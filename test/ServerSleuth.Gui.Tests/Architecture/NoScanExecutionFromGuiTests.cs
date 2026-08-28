@@ -34,7 +34,11 @@ public class NoScanExecutionFromGuiTests
         // GUI-6 §2: the shell ViewModel that wires the whole workflow together (Scan Configuration
         // → Execution → Results → New Scan) gets the same sweep — it must remain pure navigation
         // glue, never a place an orchestration/engine dependency could sneak in.
-        typeof(MainViewModel)
+        typeof(MainViewModel),
+        // GUI-6A: the Discovery Inventory types must remain pure projections over an
+        // already-completed ScanPipelineResult too — never a place a new
+        // DiscoveryEngine/ApplicationBoundaryEngine/DependencyExpansionEngine call could sneak in.
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel)
     ];
 
     public static IEnumerable<object[]> ViewModelTypes() => CheckedViewModelTypes.Select(t => new object[] { t });

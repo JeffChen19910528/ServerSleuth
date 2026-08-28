@@ -60,6 +60,11 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
         Report = report;
         ServerRiskSummary = serverRisk;
 
+        // GUI-6A: the Discovery Inventory — built once from the exact same ScanPipelineResult,
+        // never a second pipeline run. Null pipeline (Cancelled/Failed before analysis) degrades
+        // to an empty inventory, exactly like every other section on this dashboard.
+        Inventory = new InventoryExplorerViewModel(pipeline, state.Status);
+
         SelectApplicationCommand = new RelayCommand(parameter =>
         {
             if (parameter is ApplicationRowViewModel row)
@@ -251,6 +256,9 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
     public int ActionCount => Report?.ServerSummary.ActionCount ?? 0;
     public int VerificationCheckCount => Report?.ServerSummary.VerificationCheckCount ?? 0;
     public int DependencyCount => Report?.ServerSummary.DependencyCount ?? 0;
+
+    // ----- DISCOVERY INVENTORY (skill.md GUI-6A) -----
+    public InventoryExplorerViewModel Inventory { get; }
 
     // ----- APPLICATIONS (skill.md GUI-4 §6) -----
     public IReadOnlyList<ApplicationRowViewModel> Applications { get; }

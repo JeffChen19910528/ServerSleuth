@@ -41,7 +41,10 @@ public class NoCredentialShapedGuiStateTests
         // now sit "closer" to Analysis/report data than any prior GUI-3 type did.
         typeof(ResultsDashboardViewModel), typeof(ApplicationRowViewModel), typeof(ApplicationDetailViewModel),
         // GUI-5 §10: every new Export/Report Viewer state/model type gets the same sweep.
-        typeof(GuiReportExportResult), typeof(GuiReportViewResult)
+        typeof(GuiReportExportResult), typeof(GuiReportViewResult),
+        // GUI-6A §18: the Discovery Inventory reads raw DiscoveryEntity data (Metadata/Evidence)
+        // straight through — none of its own types may add a credential-shaped property either.
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel)
     ];
 
     [Theory]

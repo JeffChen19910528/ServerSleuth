@@ -196,53 +196,57 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 
 ## 發布 / 下載即用版本（Release / Distribution）
 
-如果不想自行建置，可以用 `build-release.ps1`（Windows 主機）或 `build-release.sh`（Linux/macOS 主機）產生開箱即用的單一執行檔（自我包含、免安裝 .NET 執行環境）：
+v1.0.0 起，如果不想自行建置，可以用 `build-release.ps1`（Windows 主機）或 `build-release.sh`（Linux/macOS 主機）產生開箱即用的單一執行檔（自我包含、免安裝 .NET 執行環境）：
 
 ```powershell
-# 在 Windows 上執行：同時建置 Windows GUI 與 Linux CLI 兩種執行檔
+# 在 Windows 上執行：建置 Windows GUI、Windows CLI、Linux CLI 三種執行檔，並打包成 ZIP/tar.gz
 .\build-release.ps1
 ```
 
 ```bash
-# 在 Linux/macOS 上執行：只建置 Linux CLI 執行檔
+# 在 Linux/macOS 上執行：只建置 Linux CLI 執行檔（並打包成 tar.gz）
 ./build-release.sh
 ```
 
-`build-release.ps1` 是 PowerShell 腳本，只能在 Windows 上執行；GUI（WPF，`net8.0-windows`）也只能在 Windows 主機上建置（XAML/BAML 編譯工具鏈本身就是 Windows-only，與執行 `dotnet` 的平台無關）。如果你是在 Linux 環境下開發/建置，`build-release.sh` 讓你不需要 Windows 或 PowerShell 就能直接產生 Linux x64 的 CLI 執行檔；兩者都會輸出到同一個 `dist/` 目錄結構，且都會更新 `dist/SHA256SUMS.txt`（`build-release.sh` 只會更新/新增 Linux 那一行，不會動到已存在的 Windows 校驗碼）。
+`build-release.ps1` 是 PowerShell 腳本，只能在 Windows 上執行；GUI（WPF，`net8.0-windows`）與 Windows 版 CLI（同樣使用 `net8.0-windows` TFM，以便編譯進 Windows 探勘能力）都只能在 Windows 主機上建置。如果你是在 Linux 環境下開發/建置，`build-release.sh` 讓你不需要 Windows 或 PowerShell 就能直接產生 Linux x64 的 CLI 執行檔；兩者都會輸出到同一個 `release/` 目錄結構，且都會更新 `release/SHA256SUMS.txt`（`build-release.sh` 只會更新/新增 Linux 那兩行，不會動到已存在的 Windows 校驗碼）。版本號統一從 [`Directory.Build.props`](Directory.Build.props) 讀取，兩支腳本都不會自行寫死版本字串。
 
 會產出：
 
 ```
-dist/
-├── ServerSleuth-Windows-x64/
-│   └── ServerSleuth.exe      # WPF 桌面 GUI（Windows x64，自我包含單一執行檔；只能在 Windows 上建置）
-├── ServerSleuth-Linux-x64/
-│   └── ServerSleuth           # 命令列工具（Linux x64，自我包含單一執行檔；可在 Windows 或 Linux/macOS 上建置）
-└── SHA256SUMS.txt             # 執行檔的 SHA-256 校驗碼
+release/
+├── windows/
+│   ├── ServerSleuth.exe          # WPF 桌面 GUI（Windows x64，自我包含單一執行檔）
+│   ├── serversleuth-cli.exe      # 命令列工具（Windows x64，自我包含單一執行檔）
+│   ├── README.txt / VERSION      # 使用者導向的簡短說明（打包進 ZIP 內）
+├── linux/
+│   └── serversleuth              # 命令列工具（Linux x64，自我包含單一執行檔）
+│       README.txt / VERSION      # 同上（打包進 tar.gz 內）
+├── ServerSleuth-v1.0.0-windows-x64.zip
+├── ServerSleuth-v1.0.0-linux-x64.tar.gz
+├── SHA256SUMS.txt                 # 每個執行檔與每個壓縮檔的 SHA-256 校驗碼
+└── VERSION                        # 純文字版本號
 ```
+
+`release/`（如同先前的 `dist/`）已加入 `.gitignore`，不會進入 git 版本控制 —— 正式發布時應改用 GitHub Release 或其他 artifact 儲存機制上傳這些壓縮檔，而不是把上百 MB 的執行檔提交進原始碼庫。
 
 ### Windows 使用者
 
-1. 下載 `ServerSleuth.exe`。
-2. 雙擊執行即可 —— 這是自我包含（self-contained）的單一執行檔，已實際驗證可在**未安裝 .NET 執行環境、也未含任何原始碼/建置產物**的乾淨資料夾中直接啟動。
+1. 下載 `ServerSleuth-v1.0.0-windows-x64.zip` 並解壓縮。
+2. **桌面 GUI**：雙擊 `ServerSleuth.exe` 即可 —— 自我包含單一執行檔，免安裝 .NET 執行環境。
+3. **命令列工具**：`serversleuth-cli.exe --help`。
 
 ### Linux 使用者
 
-1. 下載 `ServerSleuth`。
-2. 賦予執行權限：
+1. 下載 `ServerSleuth-v1.0.0-linux-x64.tar.gz` 並解壓縮：`tar -xzf ServerSleuth-v1.0.0-linux-x64.tar.gz`。
+2. 賦予執行權限並執行：
 
    ```bash
-   chmod +x ServerSleuth
+   chmod +x serversleuth
+   ./serversleuth --help
+   ./serversleuth scan --output ./serversleuth-report
    ```
 
-3. 執行：
-
-   ```bash
-   ./ServerSleuth --help
-   ./ServerSleuth scan --output ./serversleuth-report
-   ```
-
-   這同樣是自我包含的單一執行檔，已實際在獨立的乾淨目錄（不依賴原始碼樹、`bin/`/`obj/`、NuGet 快取或 .NET SDK）中驗證過 `--help` 與一次完整的本機掃描（含 `report.json`/`report.html` 產出）皆可正常執行。
+   這是自我包含的單一執行檔，已實際在不含 `dotnet`/.NET SDK 的獨立 Linux 環境（WSL2）中驗證過 `--help` 與一次完整的本機掃描（含 `report.json`/`report.html` 產出）皆可正常執行。
 
 ## 輸出內容
 
@@ -270,3 +274,5 @@ dist/
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — 實際落地的架構與各階段設計決策記錄
 - [`SCANNERS.md`](SCANNERS.md) — 每個掃描器的用途、資料來源、所需權限與限制
 - [`CHANGELOG.md`](CHANGELOG.md) — 版本異動紀錄
+- [`SECURITY.md`](SECURITY.md) — 安全設計原則與弱點通報方式
+- [`MIGRATION.md`](MIGRATION.md) — 如何解讀 Migration Assessment 輸出、規劃實際遷移

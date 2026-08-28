@@ -3,8 +3,11 @@ bin/
 obj/
 *.user
 
-## Phase 11A release packaging output (build artifact, not source)
+## Release packaging output (build artifacts, not source) — includes 100+MB self-contained
+## executables and their compressed archives; GitHub Releases / artifact storage, not this
+## git repository, is where a real release build's output belongs.
 dist/
+release/
 
 ## Rider / VS
 .vs/

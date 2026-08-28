@@ -89,6 +89,17 @@ public sealed class ScanPipelineRunner(IDiscoveryEngine discoveryEngine)
         onStageStarting?.Invoke(PipelineStage.Reporting);
         var report = ServerMigrationAssessmentReportEngine.Build(riskContext, aggregation, assessment, plan, discovery);
 
-        return new ScanPipelineResult { Aggregation = aggregation, Report = report };
+        // GUI-6A: carry the already-computed discovery snapshot, application boundaries, and
+        // external dependencies through unchanged — same instances the stages above already
+        // built, never recomputed — so a presentation layer can show them without re-running
+        // discovery or correlation itself.
+        return new ScanPipelineResult
+        {
+            Aggregation = aggregation,
+            Report = report,
+            Discovery = discovery,
+            Boundaries = boundaryResult.Boundaries,
+            ExternalDependencies = expansion.ExternalDependencies
+        };
     }
 }

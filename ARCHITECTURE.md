@@ -1533,6 +1533,118 @@ Linux — see Phase 10A's decision record).
 
 **Known Limitations**: no interactive/visual GUI verification was possible in this environment (same constraint as every prior GUI phase — disclosed, not glossed over). The release script does not (and per this phase's own strict-stop list, must not) produce an MSI/MSIX installer, code-signed binary, or auto-update mechanism — it is a plain publish-and-package script only.
 
+## Phase 11B Addendum — Release Packaging & Distribution (as built)
+
+Follows directly from Phase 11A's own Release Readiness Audit, which found zero release
+blockers but one genuinely missing artifact (a Windows CLI executable had never been
+published) and a versioning inconsistency (only 4 of 10 `src/` projects declared
+`<Version>`). This phase closes both gaps and produces the actual v1.0.0 portable
+distribution — packaging/documentation only, no Discovery/Analysis/Risk/Migration/
+Reporting/CLI-contract/GUI-feature/scanner change anywhere.
+
+- **Centralized versioning**: `Directory.Build.props` (repo root) — MSBuild imports this for
+  every project under the directory automatically, before each project's own `.csproj` is
+  evaluated, so `Version`/`AssemblyVersion`/`FileVersion`/`InformationalVersion` need to be
+  declared exactly once. The 4 projects that previously carried their own
+  `<Version>10.0.0</Version>` (`Cli`, `Gui`, `Gui.Contracts`, `Gui.ExecutionHost`) had that tag
+  removed — a per-project `<Version>` would otherwise silently *override* the centralized one,
+  defeating the point. Verified post-build by reading `FileVersionInfo` off four built
+  assemblies (including three, `Core`/`Reporting`/one more, that previously had **no** explicit
+  version at all): all report `FileVersion=1.0.0.0`, `ProductVersion=1.0.0+<commit-sha>` (the
+  `+<commit-sha>` suffix on `InformationalVersion` is the .NET SDK's own default
+  source-link-adjacent behavior, not something this phase added).
+- **`build-release.ps1` — full v1.0.0 pipeline, one script, no second parallel publish
+  mechanism**: extends Phase 11A's script (never replaced with a second one) to publish a
+  THIRD artifact — `src/ServerSleuth.Cli/ServerSleuth.Cli.csproj` targeting `net8.0-windows`
+  (not the `net8.0` build Linux uses) as `win-x64`, alongside the pre-existing GUI and Linux CLI
+  publishes — using the identical `--self-contained true -p:PublishSingleFile=true
+  -p:IncludeNativeLibrariesForSelfExtract=true -p:PublishTrimmed=false` flags Phase 11A already
+  established and verified safe for this dependency graph. Output moved from `dist/` to
+  `release/windows/`+`release/linux/` (Phase 11A's `dist/` layout had no room for a third,
+  same-platform executable without a naming collision risk against the GUI's own folder).
+  Reads the version from `Directory.Build.props` via `[xml](Get-Content ...)` rather than a
+  second hard-coded string, so the script can never drift from what the assemblies themselves
+  report. Adds: per-platform `README.txt`+`VERSION` bundled into each output folder (so a
+  downloaded archive is self-explanatory without also fetching this repository's own
+  documentation); `Compress-Archive`/`tar.exe`-built `ServerSleuth-v1.0.0-{windows-x64.zip,linux-x64.tar.gz}`;
+  an automated package-content audit (opens the just-built ZIP via
+  `System.IO.Compression.ZipFile`, extracts the tar.gz to a throwaway staging directory, and
+  fails the whole build if either contains a `.pdb`/`.xml`/`.deps.json`/`.runtimeconfig.json`/
+  `.cs`/`.csproj`/`bin`/`obj` entry) — a second, independent line of defense on top of the
+  already-existing guarantee that only the named executable is ever copied out of each publish
+  staging directory (§6 of the script, unchanged in spirit from Phase 11A); a `SHA256SUMS.txt`
+  now covering 5 artifacts (3 executables + 2 archives) instead of 2, recomputed fresh every
+  run via `Get-FileHash`, never hard-coded.
+- **`build-release.sh` — matching update, Linux/macOS host**: same `release/linux/` output,
+  same `Directory.Build.props`-sourced version (read via `grep`/`sed` rather than an XML
+  parser, since this script has no PowerShell `[xml]` cast available), same `README.txt`/
+  `VERSION`/package-content-audit/checksum treatment — continues Phase 11A's own convention of
+  only ever updating/adding its own (Linux-specific) lines in an existing `SHA256SUMS.txt`
+  written by a prior Windows-host run, never clobbering the Windows lines it cannot itself
+  produce. Cannot and does not attempt either Windows artifact — WPF, and the CLI's
+  `net8.0-windows` TFM (needed to compile `ServerSleuth.Windows` in), both require the Windows
+  build toolchain regardless of which OS `dotnet` itself runs on.
+- **Real artifact acceptance — genuinely re-executed this phase, not assumed from Phase 11A's
+  own (different-artifact) evidence**:
+  - **Windows CLI** (the brand-new artifact): `release/windows/serversleuth-cli.exe` alone —
+    `--help`/`--version` (`1.0.0.0`, confirming the centralized version reached a real
+    published executable)/`scan --help` all correct. A real local scan (`--verbose --overwrite`,
+    output directed to an isolated temp directory well outside `release/`) completed in 22.8s:
+    Discovery 34,915 entities/12 scanners/4 partial (18.39s), Analysis 1.52s (consistent with
+    Phase 10A-I/10A-J's own prior performance fix — no regression), Risk (318 Critical/17,346
+    High/253 Medium), Migration (72 Blocked/30 NeedsRemediation), `report.json` (275MB)/
+    `report.html` (209MB) both written, exit code 4 (`PartialDiscovery`) — matching every prior
+    real-machine run on this same dev host almost exactly (same scanner partial-count pattern),
+    which is itself evidence the packaging change introduced no behavioral difference.
+  - **Windows GUI**: `release/windows/ServerSleuth.exe` launched via `Start-Process`, alive
+    after 5s, terminated cleanly on request, no orphan process — re-confirms Phase 11A's own
+    finding still holds for the new `release/` layout. **Not** a visual/interactive
+    confirmation — same disclosed constraint as every prior GUI phase.
+  - **Linux CLI**: re-validated (not merely carried over) inside WSL2 (Ubuntu), isolated `/tmp`
+    directory. This phase went one step further than Phase 11A's own Linux verification: `type
+    dotnet` was run first and confirmed `.NET`/`dotnet` genuinely absent from that WSL instance
+    ("not found"), and `file serversleuth` confirmed the binary is a self-contained ELF
+    (`dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2` — linked only against the
+    OS's own libc, no .NET shared-runtime dependency) — stronger, more direct evidence for the
+    "does not require a pre-installed .NET runtime" claim than Phase 11A's own liveness-only
+    check provided. `--help`/`--version` (`1.0.0.0`)/`scan --help` all correct; a real local
+    scan completed in ~4.8s (1,635 entities, 11 scanners, 6 partial — `linux-kubernetes-scanner`
+    correctly `NotInstalled`, no cluster present on this WSL instance), `report.json`/
+    `report.html` both written, exit code 0.
+  - **Package content audit — independently re-verified outside the build script too**: both
+    archives were actually unzipped/untarred and their file listings inspected by hand —
+    `ServerSleuth-v1.0.0-windows-x64.zip` contains exactly `README.txt`, `serversleuth-cli.exe`,
+    `ServerSleuth.exe`, `VERSION` (4 entries, nothing else); `ServerSleuth-v1.0.0-linux-x64.tar.gz`
+    contains exactly `README.txt`, `serversleuth`, `VERSION`.
+- **`SECURITY.md`/`MIGRATION.md`** (repository root, both new): closes the two documentation
+  gaps Phase 11A flagged as non-blocking. `SECURITY.md` documents the read-only design,
+  credential-isolation guarantees (`SecureString`-only passwords, path/env-var-name-only key/
+  passphrase references, fail-closed host-key/certificate validation — all facts this
+  repository's own existing tests already enforce, not new claims), secret-redaction-in-output,
+  and vulnerability-reporting guidance that deliberately does not invent a contact address this
+  repository doesn't actually have. `MIGRATION.md` clarifies ServerSleuth's own scope boundary
+  — assessment/planning output only (`MigrationStatus`/`MigrationIssue`/`MigrationDependency`/
+  `MigrationAction`/`MigrationVerificationCheck`), never execution against a target — addressing
+  the phase instruction's own explicit "do not add migration execution capability."
+- **Repository hygiene**: `release/` added to `.gitignore` alongside the pre-existing `dist/` —
+  both are multi-hundred-MB generated build output; neither belongs in the git history.
+- **Deliberately not touched, per this phase's own explicit scope**: Phase 11A's `dist/`
+  directory and Phase 11A's own already-verified GUI/Linux-CLI artifacts (superseded, not
+  deleted, by the `release/` output above — no destructive cleanup was performed); the two
+  intermittent WPF async-timing test classes (`MainViewModelResultsNavigationTests`/
+  `ScanExecutionViewModelTests` — environmental, pre-existing, re-confirmed unchanged, not a
+  packaging concern); `GraphValidator`'s suspected-but-unmeasured performance characteristic;
+  `RuntimeIdentifiers` (evaluated — the existing `-r win-x64`/`-r linux-x64` command-line flags
+  already work correctly, proven by this phase's own three successful publishes, so no
+  `<RuntimeIdentifiers>` declaration was added to any `.csproj` per the phase's own "only if it
+  actually helps" instruction).
+
+**Known Limitations**: no interactive/visual GUI verification (same disclosed constraint as
+every prior GUI phase). No live SSH/WinRM remote acceptance was performed or newly claimed.
+No MSI/MSIX/installer/code-signing/auto-update was added — the portable ZIP/tar.gz distribution
+was a deliberate choice (see `PROGRESS.md`'s own Phase 11B entry for the full installer-decision
+rationale), not an oversight.
+
 ## Phase GUI-7 Addendum — Localization / Language Toggle (as built)
 
 A genuine new user-requested feature, made after GUI-6's own "FINAL STOP" — that stop applied to
@@ -1552,6 +1664,95 @@ content, which `ServerSleuth.Reporting` still generates unchanged).
 - **Documentation**: README.md gained a "語言切換" subsection (toggle location/behavior, the no-persistence limitation, and what remains untranslated) plus a full "各畫面逐步說明" walkthrough covering every field/button on all four real screens — addressing the separate but related user request that the README only explained how to *run* the project, not how to *operate* it once it's open.
 
 **Known Limitations**: no interactive/visual verification of the toggle (see above); no persistence across restarts; validation-error text, exception-handler text, report export/viewer result messages, and raw-enum-rendered values (scan stage, risk severity, migration status) remain English-only regardless of the selected language.
+
+## Phase GUI-6A Addendum — Discovery Inventory & Asset Explorer (as built)
+
+Answers "what did this server actually have on it" — the raw, evidence-backed `DiscoveryEntity`
+list — as its own first-class section on the Results Dashboard, distinct from and never
+recomputing the existing Risk/Migration summaries GUI-4 already built.
+
+- **Data flow (the gap this phase closed)**: `IDiscoveryEngine.RunAsync` produces an
+  `AggregateDiscoveryResult`; `GuiScanExecutor.ExecuteAsync` consumed it only for counts
+  (`EntityCount`/`ErrorCount`/`ScannerStatuses`) and then let the reference go out of scope —
+  neither `ScanCompletionState` nor `ScanExecutionState` ever carried it. Separately,
+  `ScanPipelineRunner.Analyze` computes Phase 5B's `ApplicationBoundary` list and Phase 5C's
+  derived `ExternalDependency` entities as local variables, folds them into the correlation graph/
+  risk context, and discards both once `ServerMigrationAssessmentReport` is built —
+  `ScanPipelineResult` previously exposed only `{ Aggregation, Report }`. This phase's entire
+  production change is closing that gap: `ScanPipelineResult` gained three additive fields
+  (`Discovery`, `Boundaries`, `ExternalDependencies`), populated in `ScanPipelineRunner.Analyze`
+  from the exact instances already computed there — zero new analysis, zero reordering, and
+  `GuiScanExecutor` needed no change at all (it already threads the whole `ScanPipelineResult`
+  through unchanged).
+- **Inventory model — reused `Core.Models.DiscoveryEntity` directly, no second domain model**: the
+  base already has everything a presentation layer needs (`Id`/`Name`/`Type`/`Version`/`Status`/
+  `Architecture`/`Path`/`Publisher`/`Source`/`Confidence`/`Evidence`/`Tags`/`Metadata`), is already
+  platform-neutral, and `ServerSleuth.Gui` already references `ServerSleuth.Core` directly (GUI-1's
+  original dependency rule). Building a second, parallel "presentation DTO" copy of every concrete
+  entity type was judged unnecessary complexity; instead the GUI-layer types
+  (`InventoryItemViewModel`/`InventoryDetailViewModel`) are thin, one-way *projections* — never
+  copies — that additionally resolve one derived fact `DiscoveryEntity` itself has no concept of:
+  which `ApplicationBoundary`(ies), if any, claim this entity as a member.
+- **Category vocabulary — confirmed by reading every Windows/Linux scanner's actual `Type =`
+  assignment before writing any UI code**, not assumed: `Software`, `Service`, `Configuration`,
+  `Server`, `OperatingSystem`, `Certificate`, `Port`, `ComComponent`, `WebSite`, `Application`,
+  `ApplicationPool`, `ScheduledTask`, `Process`, `Package`, `Image`, `Volume`, `Network`,
+  `NativeBinary`, `Cluster`, the ten `Kubernetes*` types, the Windows binary scanner's
+  `BinaryType`-derived values, and Analysis-layer `ExternalDependency`. `InventoryExplorerViewModel.Categories`
+  is built by grouping the actual entity list by `Type` — it never hard-codes this list, so a type
+  no scanner in a given run produced simply never appears (no synthetic zero-count row).
+- **Application attribution — resolved from existing evidence only, never guessed**: a
+  `Dictionary<string, List<string>>` (entity id → sorted boundary names) is built once from
+  `ApplicationBoundary.MemberEntityIds` (Phase 5B's own real output, now carried through). An
+  entity legitimately belonging to zero boundaries renders "Unassigned"; an entity belonging to
+  two or more (shared infrastructure) lists every one of them, deliberately not repeating Phase
+  7B's own previously-fixed single-boundary-attribution bug — covered by a dedicated 3-boundary
+  test case.
+- **Security boundary**: no redaction logic exists anywhere in the new GUI code, by design — every
+  scanner already redacts secret-shaped `Metadata`/`Evidence.Detail` values via `ISecretRedactor`
+  (`ServerSleuth.Infrastructure.Security`) before a `DiscoveryEntity` is ever constructed (verified
+  by reading `WindowsComScanner`'s `SetRedactedMetadata` call site), the same guarantee the
+  existing JSON/CSV/HTML reports already rely on — `ServerSleuth.Gui` cannot reference
+  `ServerSleuth.Infrastructure` at all, so re-implementing redaction there was never an option.
+  `NoCredentialShapedGuiStateTests`, `ResultsDashboardSecurityBoundaryTests`, and
+  `NoScanExecutionFromGuiTests` were all extended (additively) with the four new Inventory types.
+- **Performance**: entity-by-type grouping, item construction, and the boundary-membership index
+  are each a single O(N) or O(N+M) pass built once in `InventoryExplorerViewModel`'s constructor —
+  no nested entity×boundary scan. Search/category filtering never re-walks the boundary index; it
+  filters the already-built `Items` projection.
+- **Determinism**: `Items` is sorted `Type → Name → Id`, all `StringComparer.Ordinal` — no
+  dependence on `Dictionary`/`HashSet`/DI-registration enumeration order — verified by a test that
+  constructs two independent `ResultsDashboardViewModel`s from the same fixture and asserts
+  identical ordering.
+- **UI placement**: a new "Discovery Inventory" card directly beneath Scan Summary — category
+  chips with live counts, a category filter + search box, a sortable grid, and a detail panel
+  (`InventoryDetailView.xaml`, mirroring GUI-4's `ApplicationDetailView` pattern) bound to the
+  selected row. No new NuGet package; reuses the existing `Dashboard.Card`/`Text.*`/`ListView`
+  styling GUI-1 already established.
+- **Tests added**: `ScanPipelineRunnerInventoryTests` (3, `ServerSleuth.Analysis.Tests`) —
+  reference-equality on `Discovery`, and content assertions on `Boundaries`/`ExternalDependencies`
+  against a real `ApplicationBoundaryEngine`/`DependencyExpansionEngine` run. `InventoryExplorerViewModelTests`
+  (12, `ServerSleuth.Gui.Tests`) — empty/partial/cancelled states, type-driven category derivation,
+  deterministic ordering, search/category filtering without master-list mutation, evidence/metadata
+  pass-through, unassigned vs. multi-boundary attribution, and `ExternalDependency` appearing as its
+  own category. All additive; nothing existing was weakened.
+- **Regression**: `dotnet build` — 0 warnings, 0 errors across the whole solution. Every non-GUI
+  test project passes 100%. `ServerSleuth.Gui.Tests` shows 1-2 intermittent failures per run in the
+  pre-existing `MainViewModelResultsNavigationTests`/`ScanExecutionViewModelTests` classes (an
+  async `WaitUntilAsync` polling timeout, a different test failing each run) — confirmed via
+  `git stash -u` back to the exact pre-GUI-6A checkout to reproduce identically with none of this
+  phase's changes present, i.e. pre-existing environmental flakiness in this sandbox, not a
+  regression this phase introduced.
+- **Interactive/visual validation**: not performed — no interactive Windows desktop session
+  available in this environment (same disclosed constraint as every prior GUI phase). Verified
+  instead via `dotnet build`, the WPF XAML compiler (both new/modified `.xaml` files compile with
+  no binding-path errors), and the automated test suite above.
+
+**Known Limitations**: "Application" attribution shows `ApplicationBoundary.Name`, matching the
+rest of the dashboard's own convention (not a separate boundary-ID column); an entity with zero
+evidence still appears (its `Status` is whatever the scanner assigned, typically `Unknown` — never
+fabricated); Kubernetes/COM/binary categories are exercised only via hand-built fixtures in this
+environment, never a real cluster/registry/filesystem scan.
 
 ## Decisions Log
 

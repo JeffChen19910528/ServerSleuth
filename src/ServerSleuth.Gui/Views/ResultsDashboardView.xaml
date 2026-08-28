@@ -18,6 +18,9 @@
         <DataTemplate DataType="{x:Type results:ApplicationDetailViewModel}">
             <views:ApplicationDetailView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type results:InventoryDetailViewModel}">
+            <views:InventoryDetailView />
+        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -70,80 +73,71 @@
 
             <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
 
-                <!-- RISK SUMMARY -->
-                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                <!-- DISCOVERY INVENTORY (skill.md GUI-6A): the raw, evidence-backed "what did
+                     this server actually have on it" list — every discovered entity, browsable
+                     by category and search, distinct from the Applications/Risk/Migration
+                     summaries below it. -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0" DataContext="{Binding Inventory}">
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource Dashboard.RiskSummary}" Style="{StaticResource Dashboard.SectionTitle}" />
-                        <WrapPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Critical}" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dashboard.CriticalLabel}" Style="{StaticResource Text.Body}" />
-                                <TextBlock Text="{Binding CriticalCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.High}" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dashboard.HighLabel}" Style="{StaticResource Text.Body}" />
-                                <TextBlock Text="{Binding HighCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Medium}" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dashboard.MediumLabel}" Style="{StaticResource Text.Body}" />
-                                <TextBlock Text="{Binding MediumCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Low}" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dashboard.LowLabel}" Style="{StaticResource Text.Body}" />
-                                <TextBlock Text="{Binding LowCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
-                                <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Info}" VerticalAlignment="Center" />
-                                <TextBlock Text="{DynamicResource Dashboard.InformationalLabel}" Style="{StaticResource Text.Body}" />
-                                <TextBlock Text="{Binding InfoCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
-                            </StackPanel>
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
+                        <TextBlock Text="{DynamicResource Dashboard.Inventory}" Style="{StaticResource Dashboard.SectionTitle}" />
 
-                <!-- MIGRATION SUMMARY -->
-                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource Dashboard.MigrationSummary}" Style="{StaticResource Dashboard.SectionTitle}" />
-                        <WrapPanel>
-                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                                <Run Text="{DynamicResource Dashboard.BlockedLabel}" FontWeight="SemiBold" /><Run Text="{Binding BlockedApplicationCount}" />
-                            </TextBlock>
-                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                                <Run Text="{DynamicResource Dashboard.NeedsRemediationLabel}" FontWeight="SemiBold" /><Run Text="{Binding NeedsRemediationApplicationCount}" />
-                            </TextBlock>
-                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                                <Run Text="{DynamicResource Dashboard.ReadyWithConditionsLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyWithConditionsApplicationCount}" />
-                            </TextBlock>
-                            <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                                <Run Text="{DynamicResource Dashboard.ReadyLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyApplicationCount}" />
-                            </TextBlock>
-                        </WrapPanel>
-                    </StackPanel>
-                </Border>
+                        <TextBlock Text="{DynamicResource Dashboard.InventoryPartialCoverage}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap"
+                                   Visibility="{Binding HasPartialCoverage, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
 
-                <!-- DEPENDENCY SUMMARY -->
-                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource Dashboard.DependencySummary}" Style="{StaticResource Dashboard.SectionTitle}" />
-                        <TextBlock Text="{DynamicResource Dashboard.NoDependencies}" Style="{StaticResource Text.Muted}"
-                                   Visibility="{Binding DependencyGroups.Count, Converter={StaticResource CountToInverseVisibility}}" />
-                        <ItemsControl ItemsSource="{Binding DependencyGroups}">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <ComboBox Width="200" Margin="0,0,8,0"
+                                      ToolTip="{DynamicResource Dashboard.InventoryCategoryTooltip}"
+                                      ItemsSource="{Binding CategoryFilterOptions}"
+                                      SelectedItem="{Binding SelectedCategory}" />
+                            <TextBox Width="240" Margin="0,0,8,0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                     ToolTip="{DynamicResource Dashboard.InventorySearchTooltip}" />
+                            <TextBlock Style="{StaticResource Text.Muted}" VerticalAlignment="Center">
+                                <Run Text="{DynamicResource Dashboard.InventoryCountLabel}" /><Run Text="{Binding FilteredItems.Count, Mode=OneWay}" />
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Category counts (skill.md GUI-6A §6) -->
+                        <ItemsControl ItemsSource="{Binding Categories}" Margin="0,0,0,8">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type consolidation:MigrationDependencyGroup}">
-                                    <TextBlock Style="{StaticResource Text.Body}" Margin="0,2,0,2">
+                                <DataTemplate DataType="{x:Type results:InventoryCategoryViewModel}">
+                                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,16,4">
                                         <Run Text="{Binding Type, Mode=OneWay}" FontWeight="SemiBold" />
-                                        <Run Text=": " />
-                                        <Run Text="{Binding Dependencies.Count, Mode=OneWay}" />
+                                        <Run Text=": " /><Run Text="{Binding Count, Mode=OneWay}" />
                                     </TextBlock>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+
+                        <TextBlock Text="{DynamicResource Dashboard.NoInventory}" Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding HasNoInventory, Converter={StaticResource BoolToVisibility}}" />
+
+                        <ListView ItemsSource="{Binding FilteredItems}"
+                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                                  MaxHeight="320"
+                                  Visibility="{Binding HasNoInventory, Converter={StaticResource InverseBoolToVisibility}}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColType}" Width="140" DisplayMemberBinding="{Binding Type}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColName}" Width="220" DisplayMemberBinding="{Binding Name}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColStatus}" Width="90" DisplayMemberBinding="{Binding Status}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColVersion}" Width="90" DisplayMemberBinding="{Binding Version}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColArchitecture}" Width="90" DisplayMemberBinding="{Binding Architecture}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColOwnerApplication}" Width="160" DisplayMemberBinding="{Binding ApplicationDisplay}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColEvidenceCount}" Width="70" DisplayMemberBinding="{Binding EvidenceCount}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColPath}" Width="260" DisplayMemberBinding="{Binding Path}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
                     </StackPanel>
                 </Border>
+
+                <!-- SELECTED INVENTORY ITEM DETAIL — a null Content renders nothing. -->
+                <ContentControl Content="{Binding Inventory.SelectedDetail}" Margin="0,16,0,0" />
 
                 <!-- APPLICATIONS -->
                 <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
@@ -184,8 +178,79 @@
                      ContentTemplate applies), so no separate visibility converter is needed. -->
                 <ContentControl Content="{Binding SelectedApplicationDetail}" Margin="0,16,0,0" />
 
+                <!-- DEPENDENCY SUMMARY -->
+                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Dashboard.DependencySummary}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Dashboard.NoDependencies}" Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding DependencyGroups.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ItemsControl ItemsSource="{Binding DependencyGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type consolidation:MigrationDependencyGroup}">
+                                    <TextBlock Style="{StaticResource Text.Body}" Margin="0,2,0,2">
+                                        <Run Text="{Binding Type, Mode=OneWay}" FontWeight="SemiBold" />
+                                        <Run Text=": " />
+                                        <Run Text="{Binding Dependencies.Count, Mode=OneWay}" />
+                                    </TextBlock>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- MIGRATION SUMMARY — demoted to a collapsed expander alongside Risk Summary,
+                     since both are secondary to the inventory list above. -->
+                <Expander Header="{DynamicResource Dashboard.MigrationSummary}" Margin="0,16,0,0" IsExpanded="False">
+                    <WrapPanel Margin="0,8,0,0">
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="{DynamicResource Dashboard.BlockedLabel}" FontWeight="SemiBold" /><Run Text="{Binding BlockedApplicationCount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="{DynamicResource Dashboard.NeedsRemediationLabel}" FontWeight="SemiBold" /><Run Text="{Binding NeedsRemediationApplicationCount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="{DynamicResource Dashboard.ReadyWithConditionsLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyWithConditionsApplicationCount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
+                            <Run Text="{DynamicResource Dashboard.ReadyLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyApplicationCount, Mode=OneWay}" />
+                        </TextBlock>
+                    </WrapPanel>
+                </Expander>
+
+                <!-- RISK SUMMARY — demoted to a collapsed expander (was a top-level card, giving
+                     the whole dashboard a vulnerability-scan feel even for a pure inventory scan). -->
+                <Expander Header="{DynamicResource Dashboard.RiskSummary}" Margin="0,8,0,0" IsExpanded="False">
+                    <WrapPanel Margin="0,8,0,0">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Critical}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dashboard.CriticalLabel}" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding CriticalCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.High}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dashboard.HighLabel}" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding HighCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Medium}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dashboard.MediumLabel}" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding MediumCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Low}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dashboard.LowLabel}" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding LowCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,20,0">
+                            <Ellipse Width="10" Height="10" Fill="{StaticResource Risk.Info}" VerticalAlignment="Center" />
+                            <TextBlock Text="{DynamicResource Dashboard.InformationalLabel}" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding InfoCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </WrapPanel>
+                </Expander>
+
                 <!-- RISK FINDINGS -->
-                <Expander Header="{DynamicResource Dashboard.RiskFindings}" Margin="0,16,0,0" IsExpanded="False">
+                <Expander Header="{DynamicResource Dashboard.RiskFindings}" Margin="0,8,0,0" IsExpanded="False">
                     <StackPanel Margin="0,8,0,0">
                         <TextBlock Text="{DynamicResource Dashboard.NoRiskFindings}" Style="{StaticResource Text.Muted}"
                                    Visibility="{Binding TopRisks.Count, Converter={StaticResource CountToInverseVisibility}}" />

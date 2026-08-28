@@ -1,19 +1,25 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Phase 11A release packaging: publishes self-contained, single-file release
-    artifacts for Windows x64 (the WPF GUI) and Linux x64 (the CLI).
+    Phase 11B v1.0.0 release packaging: publishes self-contained, single-file release
+    artifacts for Windows x64 (GUI + CLI) and Linux x64 (CLI), and assembles the final
+    portable distribution packages.
 
 .DESCRIPTION
-    This script is separate from normal development builds (`dotnet build` /
-    `dotnet test`) — it does not change how those behave. It only publishes
-    two already-existing entry points:
+    This script is separate from normal development builds (`dotnet build` / `dotnet test`)
+    — it does not change how those behave. It publishes three already-existing entry points:
 
-      Windows x64: src/ServerSleuth.Gui  (net8.0-windows) -> ServerSleuth.exe
-      Linux   x64: src/ServerSleuth.Cli  (net8.0)          -> ServerSleuth
+      Windows x64 GUI: src/ServerSleuth.Gui  (net8.0-windows) -> ServerSleuth.exe
+      Windows x64 CLI: src/ServerSleuth.Cli  (net8.0-windows) -> serversleuth-cli.exe
+      Linux   x64 CLI: src/ServerSleuth.Cli  (net8.0)          -> serversleuth
 
-    Output goes to dist/ServerSleuth-Windows-x64/ and dist/ServerSleuth-Linux-x64/.
-    SHA-256 checksums are written to dist/SHA256SUMS.txt.
+    Output goes to release/windows/, release/linux/, plus compressed distribution packages
+    (ServerSleuth-v<version>-windows-x64.zip / .tar.gz) and a top-level release/VERSION and
+    release/SHA256SUMS.txt covering every raw executable AND both archives.
+
+    The product version is read from the repository's own Directory.Build.props (single
+    source of truth — see that file) rather than hard-coded here, so this script can never
+    silently drift out of sync with what every assembly actually reports.
 
 .USAGE
     .\build-release.ps1
@@ -26,7 +32,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = $PSScriptRoot
-$distRoot = Join-Path $repoRoot 'dist'
+$releaseRoot = Join-Path $repoRoot 'release'
 
 function Write-Step {
     param([string]$Message)
@@ -38,6 +44,11 @@ function Fail {
     param([string]$Message)
     Write-Host "ERROR: $Message" -ForegroundColor Red
     exit 1
+}
+
+function Format-Bytes {
+    param([long]$Bytes)
+    "{0:N2} MB" -f ($Bytes / 1MB)
 }
 
 # ---------------------------------------------------------------------------
@@ -58,39 +69,57 @@ Write-Host "  dotnet SDK: $sdkVersion"
 
 $guiProject = Join-Path $repoRoot 'src\ServerSleuth.Gui\ServerSleuth.Gui.csproj'
 $cliProject = Join-Path $repoRoot 'src\ServerSleuth.Cli\ServerSleuth.Cli.csproj'
+$buildPropsPath = Join-Path $repoRoot 'Directory.Build.props'
 if (-not (Test-Path $guiProject)) { Fail "GUI project not found at $guiProject" }
 if (-not (Test-Path $cliProject)) { Fail "CLI project not found at $cliProject" }
+if (-not (Test-Path $buildPropsPath)) { Fail "Directory.Build.props not found at $buildPropsPath" }
 Write-Host "  GUI project: $guiProject"
 Write-Host "  CLI project: $cliProject"
+
+# Read the version straight out of Directory.Build.props — never a second, hard-coded copy
+# that could silently drift from what every published assembly actually reports.
+$buildPropsXml = [xml](Get-Content $buildPropsPath -Raw)
+$version = $buildPropsXml.Project.PropertyGroup.Version | Select-Object -First 1
+if ([string]::IsNullOrWhiteSpace($version)) {
+    Fail "Could not read <Version> from Directory.Build.props."
+}
+Write-Host "  Release version: $version"
+
+$tarCmd = Get-Command tar -ErrorAction SilentlyContinue
+if (-not $tarCmd) {
+    Fail "'tar' was not found on PATH (needed to produce the Linux .tar.gz archive — ships built into Windows 10 1803+/Windows 11)."
+}
 
 # ---------------------------------------------------------------------------
 # 2. Clean the release output directory
 # ---------------------------------------------------------------------------
 Write-Step "Cleaning release output directory"
 
-if (Test-Path $distRoot) {
-    Remove-Item -Recurse -Force $distRoot
+if (Test-Path $releaseRoot) {
+    Remove-Item -Recurse -Force $releaseRoot
 }
-New-Item -ItemType Directory -Force -Path $distRoot | Out-Null
-Write-Host "  Cleaned: $distRoot"
+New-Item -ItemType Directory -Force -Path $releaseRoot | Out-Null
+Write-Host "  Cleaned: $releaseRoot"
 
-$winOutDir = Join-Path $distRoot 'ServerSleuth-Windows-x64'
-$linuxOutDir = Join-Path $distRoot 'ServerSleuth-Linux-x64'
+$winOutDir = Join-Path $releaseRoot 'windows'
+$linuxOutDir = Join-Path $releaseRoot 'linux'
+New-Item -ItemType Directory -Force -Path $winOutDir | Out-Null
+New-Item -ItemType Directory -Force -Path $linuxOutDir | Out-Null
 
-# Intermediate publish staging directories, kept OUT of dist/ so dist/ only ever
-# contains the final, renamed release artifacts (skill.md/spec §4: "Do not mix
-# intermediate build files with release artifacts").
+# Intermediate publish staging directories, kept OUT of release/ so release/ only ever
+# contains the final, renamed release artifacts.
 $publishStagingRoot = Join-Path $repoRoot 'obj\release-publish-staging'
 if (Test-Path $publishStagingRoot) {
     Remove-Item -Recurse -Force $publishStagingRoot
 }
-$winStagingDir = Join-Path $publishStagingRoot 'win-x64'
+$winGuiStagingDir = Join-Path $publishStagingRoot 'win-x64-gui'
+$winCliStagingDir = Join-Path $publishStagingRoot 'win-x64-cli'
 $linuxStagingDir = Join-Path $publishStagingRoot 'linux-x64'
 
 # ---------------------------------------------------------------------------
-# 3. Publish Windows x64 (WPF GUI)
+# 3. Publish Windows x64 GUI
 # ---------------------------------------------------------------------------
-Write-Step "Publishing Windows x64 (ServerSleuth.Gui)"
+Write-Step "Publishing Windows x64 GUI (ServerSleuth.Gui)"
 
 & dotnet publish $guiProject `
     -c $Configuration `
@@ -99,16 +128,35 @@ Write-Step "Publishing Windows x64 (ServerSleuth.Gui)"
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:PublishTrimmed=false `
-    -o $winStagingDir
+    -o $winGuiStagingDir
 
 if ($LASTEXITCODE -ne 0) {
-    Fail "Windows publish failed (dotnet publish exited with code $LASTEXITCODE)."
+    Fail "Windows GUI publish failed (dotnet publish exited with code $LASTEXITCODE)."
 }
 
 # ---------------------------------------------------------------------------
-# 4. Publish Linux x64 (CLI)
+# 4. Publish Windows x64 CLI (Phase 11B: the artifact Phase 11A found missing)
 # ---------------------------------------------------------------------------
-Write-Step "Publishing Linux x64 (ServerSleuth.Cli)"
+Write-Step "Publishing Windows x64 CLI (ServerSleuth.Cli, net8.0-windows)"
+
+& dotnet publish $cliProject `
+    -c $Configuration `
+    -f net8.0-windows `
+    -r win-x64 `
+    --self-contained true `
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:PublishTrimmed=false `
+    -o $winCliStagingDir
+
+if ($LASTEXITCODE -ne 0) {
+    Fail "Windows CLI publish failed (dotnet publish exited with code $LASTEXITCODE)."
+}
+
+# ---------------------------------------------------------------------------
+# 5. Publish Linux x64 CLI
+# ---------------------------------------------------------------------------
+Write-Step "Publishing Linux x64 CLI (ServerSleuth.Cli, net8.0)"
 
 & dotnet publish $cliProject `
     -c $Configuration `
@@ -121,96 +169,209 @@ Write-Step "Publishing Linux x64 (ServerSleuth.Cli)"
     -o $linuxStagingDir
 
 if ($LASTEXITCODE -ne 0) {
-    Fail "Linux publish failed (dotnet publish exited with code $LASTEXITCODE)."
+    Fail "Linux CLI publish failed (dotnet publish exited with code $LASTEXITCODE)."
 }
 
 # ---------------------------------------------------------------------------
-# 5. Assemble final dist/ layout
+# 6. Assemble final release/ layout — copy ONLY the real executable out of each staging
+#    directory (never the whole publish output), so .pdb/.deps.json/.runtimeconfig.json
+#    (harmless leftover files `dotnet publish` still writes alongside a single-file
+#    executable, none of which the executable itself needs to run) never reach release/.
 # ---------------------------------------------------------------------------
 Write-Step "Assembling release artifacts"
 
-New-Item -ItemType Directory -Force -Path $winOutDir | Out-Null
-New-Item -ItemType Directory -Force -Path $linuxOutDir | Out-Null
-
-# Published executable names come from each project's own <AssemblyName> — the GUI
-# publishes as ServerSleuth.Gui.exe, the CLI as serversleuth (both lowercase-first on
-# Linux). Renaming to the user-facing "ServerSleuth"/"ServerSleuth.exe" here is a
-# publish-output rename only — it does not touch either project's real AssemblyName
-# (overriding AssemblyName via -p: was tried and rejected: it propagates to every
-# ProjectReference in the graph and produces an "Ambiguous project name" restore error).
-$winPublishedExe = Join-Path $winStagingDir 'ServerSleuth.Gui.exe'
+$winGuiPublishedExe = Join-Path $winGuiStagingDir 'ServerSleuth.Gui.exe'
+$winCliPublishedExe = Join-Path $winCliStagingDir 'serversleuth.exe'
 $linuxPublishedExe = Join-Path $linuxStagingDir 'serversleuth'
 
-if (-not (Test-Path $winPublishedExe)) {
-    Fail "Expected published Windows binary not found: $winPublishedExe"
-}
-if (-not (Test-Path $linuxPublishedExe)) {
-    Fail "Expected published Linux binary not found: $linuxPublishedExe"
+if (-not (Test-Path $winGuiPublishedExe)) { Fail "Expected published Windows GUI binary not found: $winGuiPublishedExe" }
+if (-not (Test-Path $winCliPublishedExe)) { Fail "Expected published Windows CLI binary not found: $winCliPublishedExe" }
+if (-not (Test-Path $linuxPublishedExe)) { Fail "Expected published Linux CLI binary not found: $linuxPublishedExe" }
+
+# Renaming to the user-facing names here is a publish-output rename only — it does not
+# touch any project's real AssemblyName (overriding AssemblyName via -p: was tried and
+# rejected in Phase 11A: it propagates to every ProjectReference in the graph and produces
+# an "Ambiguous project name" restore error).
+Copy-Item -Path $winGuiPublishedExe -Destination (Join-Path $winOutDir 'ServerSleuth.exe')
+Copy-Item -Path $winCliPublishedExe -Destination (Join-Path $winOutDir 'serversleuth-cli.exe')
+Copy-Item -Path $linuxPublishedExe -Destination (Join-Path $linuxOutDir 'serversleuth')
+
+$winGuiExe = Join-Path $winOutDir 'ServerSleuth.exe'
+$winCliExe = Join-Path $winOutDir 'serversleuth-cli.exe'
+$linuxExe = Join-Path $linuxOutDir 'serversleuth'
+
+foreach ($f in @($winGuiExe, $winCliExe, $linuxExe)) {
+    if (-not (Test-Path $f) -or (Get-Item $f).Length -le 0) {
+        Fail "Expected release artifact missing or empty: $f"
+    }
 }
 
-Copy-Item -Path $winPublishedExe -Destination (Join-Path $winOutDir 'ServerSleuth.exe')
-Copy-Item -Path $linuxPublishedExe -Destination (Join-Path $linuxOutDir 'ServerSleuth')
-
-$winExe = Join-Path $winOutDir 'ServerSleuth.exe'
-$linuxExe = Join-Path $linuxOutDir 'ServerSleuth'
-
-if (-not (Test-Path $winExe)) {
-    Fail "Expected Windows artifact not found: $winExe"
-}
-if (-not (Test-Path $linuxExe)) {
-    Fail "Expected Linux artifact not found: $linuxExe"
-}
+Write-Host "  Windows GUI: $winGuiExe ($(Format-Bytes (Get-Item $winGuiExe).Length))"
+Write-Host "  Windows CLI: $winCliExe ($(Format-Bytes (Get-Item $winCliExe).Length))"
+Write-Host "  Linux CLI:   $linuxExe ($(Format-Bytes (Get-Item $linuxExe).Length))"
 
 # ---------------------------------------------------------------------------
-# 6. Verify artifacts (non-empty, report remaining files if any)
+# 7. VERSION file
 # ---------------------------------------------------------------------------
-Write-Step "Verifying artifacts"
+Write-Step "Writing VERSION"
 
-$winFiles = Get-ChildItem -Path $winOutDir -File
-$linuxFiles = Get-ChildItem -Path $linuxOutDir -File
+$versionFile = Join-Path $releaseRoot 'VERSION'
+Set-Content -Path $versionFile -Value $version -Encoding ASCII -NoNewline
+Write-Host "  Written: $versionFile ($version)"
 
-$winSize = (Get-Item $winExe).Length
-$linuxSize = (Get-Item $linuxExe).Length
+# ---------------------------------------------------------------------------
+# 8. Per-platform README.txt (bundled inside each archive — end-user facing only, never
+#    development documentation).
+# ---------------------------------------------------------------------------
+Write-Step "Writing per-platform README.txt"
 
-if ($winSize -le 0) { Fail "Windows artifact is empty: $winExe" }
-if ($linuxSize -le 0) { Fail "Linux artifact is empty: $linuxExe" }
+$commonNotes = @"
+ServerSleuth is a strictly READ-ONLY server discovery and migration assessment
+tool. It never stops/restarts services, modifies the registry/IIS/systemd,
+deletes files, installs packages, or changes firewall rules on the target it
+scans. Secret-shaped values (passwords, connection strings, API keys, tokens,
+private keys) are always redacted from every report.
 
-function Format-Bytes {
-    param([long]$Bytes)
-    "{0:N2} MB" -f ($Bytes / 1MB)
+Some scanners may show as PartiallySupported / NotInstalled / AccessDenied on
+a given target machine — this reflects that machine's own configuration and
+the permissions the scan was run with, not a defect in ServerSleuth itself.
+"@
+
+$winReadme = @"
+ServerSleuth v$version - Windows x64
+=====================================
+
+This is a self-contained, single-file distribution. No separate .NET
+installation is required.
+
+Desktop GUI:
+    Run ServerSleuth.exe
+
+Command-line interface:
+    serversleuth-cli.exe --help
+    serversleuth-cli.exe --version
+    serversleuth-cli.exe scan --output <output-directory>
+
+$commonNotes
+"@
+
+$linuxReadme = @"
+ServerSleuth v$version - Linux x64
+====================================
+
+This is a self-contained, single-file distribution. No separate .NET
+installation is required.
+
+    chmod +x serversleuth
+    ./serversleuth --help
+    ./serversleuth --version
+    ./serversleuth scan --output <output-directory>
+
+$commonNotes
+"@
+
+Set-Content -Path (Join-Path $winOutDir 'README.txt') -Value $winReadme -Encoding UTF8
+Set-Content -Path (Join-Path $linuxOutDir 'README.txt') -Value $linuxReadme -Encoding UTF8
+Copy-Item -Path $versionFile -Destination (Join-Path $winOutDir 'VERSION')
+Copy-Item -Path $versionFile -Destination (Join-Path $linuxOutDir 'VERSION')
+Write-Host "  Written: $(Join-Path $winOutDir 'README.txt'), $(Join-Path $linuxOutDir 'README.txt')"
+
+# ---------------------------------------------------------------------------
+# 9. Compressed distribution packages
+# ---------------------------------------------------------------------------
+Write-Step "Building compressed distribution packages"
+
+$winZipName = "ServerSleuth-v$version-windows-x64.zip"
+$linuxTarName = "ServerSleuth-v$version-linux-x64.tar.gz"
+$winZipPath = Join-Path $releaseRoot $winZipName
+$linuxTarPath = Join-Path $releaseRoot $linuxTarName
+
+if (Test-Path $winZipPath) { Remove-Item -Force $winZipPath }
+Compress-Archive -Path (Join-Path $winOutDir '*') -DestinationPath $winZipPath -CompressionLevel Optimal
+
+if (Test-Path $linuxTarPath) { Remove-Item -Force $linuxTarPath }
+# tar's -C changes directory before archiving so the tar contains bare filenames
+# (serversleuth, README.txt, VERSION), never an absolute-path-rooted entry.
+& tar -czf $linuxTarPath -C $linuxOutDir .
+if ($LASTEXITCODE -ne 0) {
+    Fail "Failed to create $linuxTarPath (tar exited with code $LASTEXITCODE)."
 }
 
-Write-Host ""
-Write-Host "Windows x64 artifact:" -ForegroundColor Green
-Write-Host "  Path:  $winExe"
-Write-Host "  Size:  $(Format-Bytes $winSize)"
-Write-Host "  Files in $($winOutDir):  $($winFiles.Count)"
-$winFiles | ForEach-Object { Write-Host "    - $($_.Name) ($(Format-Bytes $_.Length))" }
-
-Write-Host ""
-Write-Host "Linux x64 artifact:" -ForegroundColor Green
-Write-Host "  Path:  $linuxExe"
-Write-Host "  Size:  $(Format-Bytes $linuxSize)"
-Write-Host "  Files in $($linuxOutDir):  $($linuxFiles.Count)"
-$linuxFiles | ForEach-Object { Write-Host "    - $($_.Name) ($(Format-Bytes $_.Length))" }
+Write-Host "  Windows ZIP: $winZipPath ($(Format-Bytes (Get-Item $winZipPath).Length))"
+Write-Host "  Linux tar.gz: $linuxTarPath ($(Format-Bytes (Get-Item $linuxTarPath).Length))"
 
 # ---------------------------------------------------------------------------
-# 7. Checksums
+# 10. Package content audit — fail the build if a forbidden development artifact made
+#     it into either archive (this only re-checks what step 6 already guaranteed by
+#     construction, as a second, independent line of defense).
+# ---------------------------------------------------------------------------
+Write-Step "Auditing package contents"
+
+$forbiddenPatterns = @('*.pdb', '*.xml', '*.deps.json', '*.runtimeconfig.json', '*.csproj', '*.cs', 'bin', 'obj')
+
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [System.IO.Compression.ZipFile]::OpenRead($winZipPath)
+try {
+    $zipEntries = $zip.Entries | ForEach-Object { $_.FullName }
+} finally {
+    $zip.Dispose()
+}
+
+$violations = @()
+foreach ($entry in $zipEntries) {
+    foreach ($pattern in $forbiddenPatterns) {
+        if ($entry -like $pattern) { $violations += "windows zip: $entry" }
+    }
+}
+
+$auditStagingDir = Join-Path $publishStagingRoot 'tar-audit'
+if (Test-Path $auditStagingDir) { Remove-Item -Recurse -Force $auditStagingDir }
+New-Item -ItemType Directory -Force -Path $auditStagingDir | Out-Null
+& tar -xzf $linuxTarPath -C $auditStagingDir
+$tarEntries = Get-ChildItem -Path $auditStagingDir -Recurse -File | ForEach-Object { $_.Name }
+foreach ($entry in $tarEntries) {
+    foreach ($pattern in $forbiddenPatterns) {
+        if ($entry -like $pattern) { $violations += "linux tar.gz: $entry" }
+    }
+}
+Remove-Item -Recurse -Force $auditStagingDir
+
+if ($violations.Count -gt 0) {
+    Write-Host "  Contents (windows zip): $($zipEntries -join ', ')"
+    Write-Host "  Contents (linux tar.gz): $($tarEntries -join ', ')"
+    Fail "Package content audit found forbidden development artifact(s): $($violations -join '; ')"
+}
+
+Write-Host "  Windows ZIP contents:   $($zipEntries -join ', ')"
+Write-Host "  Linux tar.gz contents:  $($tarEntries -join ', ')"
+Write-Host "  No forbidden development artifacts found in either package." -ForegroundColor Green
+
+# ---------------------------------------------------------------------------
+# 11. Checksums — every raw executable AND both archives, recomputed fresh every run.
 # ---------------------------------------------------------------------------
 Write-Step "Generating SHA-256 checksums"
 
-$checksumFile = Join-Path $distRoot 'SHA256SUMS.txt'
+$checksumFile = Join-Path $releaseRoot 'SHA256SUMS.txt'
 $lines = @()
-$lines += "$((Get-FileHash -Algorithm SHA256 $winExe).Hash.ToLowerInvariant())  ServerSleuth-Windows-x64/ServerSleuth.exe"
-$lines += "$((Get-FileHash -Algorithm SHA256 $linuxExe).Hash.ToLowerInvariant())  ServerSleuth-Linux-x64/ServerSleuth"
+$lines += "$((Get-FileHash -Algorithm SHA256 $winGuiExe).Hash.ToLowerInvariant())  windows/ServerSleuth.exe"
+$lines += "$((Get-FileHash -Algorithm SHA256 $winCliExe).Hash.ToLowerInvariant())  windows/serversleuth-cli.exe"
+$lines += "$((Get-FileHash -Algorithm SHA256 $linuxExe).Hash.ToLowerInvariant())  linux/serversleuth"
+$lines += "$((Get-FileHash -Algorithm SHA256 $winZipPath).Hash.ToLowerInvariant())  $winZipName"
+$lines += "$((Get-FileHash -Algorithm SHA256 $linuxTarPath).Hash.ToLowerInvariant())  $linuxTarName"
 Set-Content -Path $checksumFile -Value $lines -Encoding ASCII
 Write-Host "  Written: $checksumFile"
 
 # ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
-Write-Step "Release build complete"
-Write-Host "  $winExe"
+Write-Step "Release build complete — v$version"
+Get-Content $checksumFile | ForEach-Object { Write-Host "  $_" }
+Write-Host ""
+Write-Host "  $winGuiExe"
+Write-Host "  $winCliExe"
 Write-Host "  $linuxExe"
+Write-Host "  $winZipPath"
+Write-Host "  $linuxTarPath"
+Write-Host "  $versionFile"
 Write-Host "  $checksumFile"
 exit 0

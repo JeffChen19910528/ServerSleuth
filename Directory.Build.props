@@ -1,0 +1,17 @@
+<Project>
+
+  <!-- Phase 11B: single source of truth for the product version across every project in the
+       solution — replaces the previously inconsistent per-csproj <Version>10.0.0</Version>
+       (present on only 4 of 10 src/ projects; the other 6 silently defaulted to 1.0.0.0). MSBuild
+       automatically imports this file for every project under this directory before each
+       project's own .csproj is evaluated, so no individual .csproj needs its own <Version> tag
+       any more. Does not touch TargetFramework/TargetFrameworks, PackageReference, or introduce
+       any new NuGet package. -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+  </PropertyGroup>
+
+</Project>

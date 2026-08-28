@@ -21,7 +21,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <Version>10.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup>

@@ -30,7 +30,10 @@ public class ResultsDashboardSecurityBoundaryTests
         // GUI-5 §10: the two new Export/Report Viewer result types get the same direct check
         // (they are already reachable — and therefore already covered — via ResultsDashboardViewModel's
         // own walk below, but an explicit entry here makes the guarantee obvious per-type too).
-        typeof(ServerSleuth.Gui.Models.GuiReportExportResult), typeof(ServerSleuth.Gui.Models.GuiReportViewResult)
+        typeof(ServerSleuth.Gui.Models.GuiReportExportResult), typeof(ServerSleuth.Gui.Models.GuiReportViewResult),
+        // GUI-6A §18: same explicit-entry treatment for the new Discovery Inventory types — also
+        // already reachable (and covered) via ResultsDashboardViewModel.Inventory below.
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel)
     ];
 
     public static IEnumerable<object[]> CheckedTypesData() => CheckedTypes.Select(t => new object[] { t });

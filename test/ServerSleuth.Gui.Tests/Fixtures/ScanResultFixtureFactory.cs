@@ -7,8 +7,12 @@ using ServerSleuth.Analysis.Migration.Verification;
 using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Analysis.Risk.Diagnostics;
 using ServerSleuth.Analysis.Risk.Models;
+using ServerSleuth.Core.Boundaries;
 using ServerSleuth.Core.Enums;
 using ServerSleuth.Core.Evidence;
+using ServerSleuth.Core.Models;
+using ServerSleuth.Core.Orchestration;
+using ServerSleuth.Core.Results;
 using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.Models;
 
@@ -42,6 +46,20 @@ internal static class ScanResultFixtureFactory
         /// exactly as <c>ServerMigrationAssessmentReport.SharedInfrastructure</c> (Phase 7B/8C)
         /// already distinguishes them from a single-application dependency.</summary>
         public int SharedInfrastructureCount { get; init; }
+
+        /// <summary>GUI-6A: the raw discovered entities this fixture's <c>ScanPipelineResult.Discovery</c>
+        /// carries — <c>null</c> (the default) builds an empty discovery snapshot, so every
+        /// pre-GUI-6A test using this factory keeps compiling and passing unchanged.</summary>
+        public IReadOnlyList<DiscoveryEntity>? DiscoveryEntities { get; init; }
+
+        /// <summary>GUI-6A: the <c>ApplicationBoundary</c> list <c>ScanPipelineResult.Boundaries</c>
+        /// carries — <c>null</c>/omitted means no boundary membership (every discovered entity
+        /// shows as "Unassigned").</summary>
+        public IReadOnlyList<ApplicationBoundary>? Boundaries { get; init; }
+
+        /// <summary>GUI-6A: the <c>ExternalDependency</c> list <c>ScanPipelineResult.ExternalDependencies</c>
+        /// carries.</summary>
+        public IReadOnlyList<ExternalDependency>? ExternalDependencies { get; init; }
     }
 
     private static readonly RiskSeverity[] Severities = [RiskSeverity.Critical, RiskSeverity.High, RiskSeverity.Medium, RiskSeverity.Low, RiskSeverity.Info];
@@ -391,10 +409,22 @@ internal static class ScanResultFixtureFactory
             Diagnostics = new ConsolidationDiagnostics()
         };
 
+        var discoveryEntities = options.DiscoveryEntities ?? [];
+        var discoveryScannerResult = DiscoveryResult.Success("fixture-scanner", discoveryEntities);
+
         return new ScanPipelineResult
         {
             Aggregation = new RiskAggregationResult { Server = serverRiskSummary, Diagnostics = new RiskAggregationDiagnostics() },
-            Report = report
+            Report = report,
+            Discovery = new AggregateDiscoveryResult
+            {
+                Entities = discoveryEntities,
+                Errors = [],
+                ScannerResults = [discoveryScannerResult],
+                ScannerStatuses = new Dictionary<string, ScannerStatus> { ["fixture-scanner"] = ScannerStatus.Supported }
+            },
+            Boundaries = options.Boundaries ?? [],
+            ExternalDependencies = options.ExternalDependencies ?? []
         };
     }
 

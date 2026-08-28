@@ -32,22 +32,12 @@ public partial class App : Application
 {
     private IServiceProvider? _services;
 
-    /// <summary>Works around a real, previously-undetected defect: with
-    /// <c>InvariantGlobalization</c> enabled (see this project's own .csproj), WPF's data-binding
-    /// engine still tries to resolve <see cref="FrameworkElement.Language"/>'s default value
-    /// ("en-US") to a real, non-invariant <see cref="CultureInfo"/> the first time ANY bound
-    /// control on ANY page actually attaches to the visual tree and runs a layout pass — which
-    /// throws <c>InvalidOperationException: Cannot find non-neutral culture related to 'en-us'</c>,
-    /// caught by this class's own <see cref="OnDispatcherUnhandledException"/> and surfaced only
-    /// as the generic "unexpected error" message. GUI-1's Dashboard placeholder has no real bound
-    /// controls, so this was never hit until a page with actual form bindings (Scan Configuration)
-    /// was reached — reproduced with a real <see cref="Application"/>/<see cref="MainWindow"/>/
-    /// real layout pass, unrelated to and reproducing with or without GUI-7's language toggle.
-    /// The standard fix (not reversing the <c>InvariantGlobalization</c> choice, which this class
-    /// has no documented reason to second-guess) is to override every <see cref="FrameworkElement"/>'s
-    /// default <see cref="FrameworkElement.LanguageProperty"/> to the one culture that always
-    /// exists under invariant globalization — before any <see cref="FrameworkElement"/> (including
-    /// <see cref="MainWindow"/>) is ever constructed, hence the static constructor.</summary>
+    /// <summary>WPF's data-binding
+    /// engine would otherwise use the system locale for internal formatting. Pinning every
+    /// <see cref="FrameworkElement"/>'s <see cref="FrameworkElement.LanguageProperty"/> to the
+    /// invariant culture before any <see cref="FrameworkElement"/> (including
+    /// <see cref="MainWindow"/>) is constructed keeps date/number rendering consistent regardless
+    /// of the user's system language — hence the static constructor.</summary>
     static App()
     {
         FrameworkElement.LanguageProperty.OverrideMetadata(

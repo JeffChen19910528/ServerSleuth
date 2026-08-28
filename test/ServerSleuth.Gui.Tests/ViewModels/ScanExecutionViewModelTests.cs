@@ -208,7 +208,11 @@ public class ScanExecutionViewModelTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        // ScanExecutionViewModel now offloads IGuiScanExecutor.ExecuteAsync via Task.Run (see its
+        // own doc comment) so that a real scan never blocks the WPF UI thread — this is a genuine
+        // cross-thread hop rather than the previous same-thread synchronous completion, so this
+        // deadline has headroom for actual thread-pool scheduling latency, not just CPU work.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
             if (condition())

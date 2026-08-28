@@ -109,7 +109,18 @@ public sealed class ScanExecutionViewModel : ObservableObject, IPageViewModel
         ScanCompletionState completion;
         try
         {
-            completion = await _executor.ExecuteAsync(request, credentials, progress, cancellationToken);
+            // Most IDiscoveryScanner implementations do their Registry/WMI/filesystem/IIS/COM
+            // work synchronously and only wrap the result in Task.FromResult — there is no real
+            // await anywhere in that chain to yield control back to the WPF message pump. Left
+            // un-offloaded, the entire scan (which can run for minutes under ScanProfile.Migration)
+            // would execute directly on this UI-thread-originated async continuation, freezing the
+            // window ("Not Responding") and starving the Progress<T> reports that are supposed to
+            // animate the progress UI. Task.Run moves the whole executor call to the thread pool;
+            // Progress<T> still marshals reports back via the SynchronizationContext it captured
+            // when constructed on the UI thread in Start(), so progress updates keep working.
+            completion = await Task.Run(
+                () => _executor.ExecuteAsync(request, credentials, progress, cancellationToken),
+                cancellationToken);
         }
         catch (OperationCanceledException)
         {

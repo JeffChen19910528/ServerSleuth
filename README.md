@@ -196,21 +196,29 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 
 ## 發布 / 下載即用版本（Release / Distribution）
 
-如果不想自行建置，可以用 `build-release.ps1` 產生開箱即用的單一執行檔（自我包含、免安裝 .NET 執行環境）：
+如果不想自行建置，可以用 `build-release.ps1`（Windows 主機）或 `build-release.sh`（Linux/macOS 主機）產生開箱即用的單一執行檔（自我包含、免安裝 .NET 執行環境）：
 
 ```powershell
+# 在 Windows 上執行：同時建置 Windows GUI 與 Linux CLI 兩種執行檔
 .\build-release.ps1
 ```
+
+```bash
+# 在 Linux/macOS 上執行：只建置 Linux CLI 執行檔
+./build-release.sh
+```
+
+`build-release.ps1` 是 PowerShell 腳本，只能在 Windows 上執行；GUI（WPF，`net8.0-windows`）也只能在 Windows 主機上建置（XAML/BAML 編譯工具鏈本身就是 Windows-only，與執行 `dotnet` 的平台無關）。如果你是在 Linux 環境下開發/建置，`build-release.sh` 讓你不需要 Windows 或 PowerShell 就能直接產生 Linux x64 的 CLI 執行檔；兩者都會輸出到同一個 `dist/` 目錄結構，且都會更新 `dist/SHA256SUMS.txt`（`build-release.sh` 只會更新/新增 Linux 那一行，不會動到已存在的 Windows 校驗碼）。
 
 會產出：
 
 ```
 dist/
 ├── ServerSleuth-Windows-x64/
-│   └── ServerSleuth.exe      # WPF 桌面 GUI（Windows x64，自我包含單一執行檔）
+│   └── ServerSleuth.exe      # WPF 桌面 GUI（Windows x64，自我包含單一執行檔；只能在 Windows 上建置）
 ├── ServerSleuth-Linux-x64/
-│   └── ServerSleuth           # 命令列工具（Linux x64，自我包含單一執行檔）
-└── SHA256SUMS.txt             # 兩個執行檔的 SHA-256 校驗碼
+│   └── ServerSleuth           # 命令列工具（Linux x64，自我包含單一執行檔；可在 Windows 或 Linux/macOS 上建置）
+└── SHA256SUMS.txt             # 執行檔的 SHA-256 校驗碼
 ```
 
 ### Windows 使用者

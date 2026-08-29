@@ -202,18 +202,29 @@
                      since both are secondary to the inventory list above. -->
                 <Expander Header="{DynamicResource Dashboard.MigrationSummary}" Margin="0,16,0,0" IsExpanded="False">
                     <WrapPanel Margin="0,8,0,0">
-                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                            <Run Text="{DynamicResource Dashboard.BlockedLabel}" FontWeight="SemiBold" /><Run Text="{Binding BlockedApplicationCount, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                            <Run Text="{DynamicResource Dashboard.NeedsRemediationLabel}" FontWeight="SemiBold" /><Run Text="{Binding NeedsRemediationApplicationCount, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                            <Run Text="{DynamicResource Dashboard.ReadyWithConditionsLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyWithConditionsApplicationCount, Mode=OneWay}" />
-                        </TextBlock>
-                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,24,4">
-                            <Run Text="{DynamicResource Dashboard.ReadyLabel}" FontWeight="SemiBold" /><Run Text="{Binding ReadyApplicationCount, Mode=OneWay}" />
-                        </TextBlock>
+                        <!-- Two separate TextBlocks instead of sibling Run elements bound directly
+                             on a read-only int: WPF's layout-triggered binding re-attach for
+                             Run.Text can attempt a TwoWay resolution even with Mode=OneWay set
+                             explicitly, throwing InvalidOperationException against a read-only
+                             property (observed in gui-*.log — see GuiExceptionHandler). Plain
+                             TextBlock.Text bindings, used everywhere else in this view, do not
+                             exhibit this. -->
+                        <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                            <TextBlock Text="{DynamicResource Dashboard.BlockedLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding BlockedApplicationCount, Mode=OneWay}" Style="{StaticResource Text.Body}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                            <TextBlock Text="{DynamicResource Dashboard.NeedsRemediationLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding NeedsRemediationApplicationCount, Mode=OneWay}" Style="{StaticResource Text.Body}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                            <TextBlock Text="{DynamicResource Dashboard.ReadyWithConditionsLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding ReadyWithConditionsApplicationCount, Mode=OneWay}" Style="{StaticResource Text.Body}" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                            <TextBlock Text="{DynamicResource Dashboard.ReadyLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                            <TextBlock Text="{Binding ReadyApplicationCount, Mode=OneWay}" Style="{StaticResource Text.Body}" />
+                        </StackPanel>
                     </WrapPanel>
                 </Expander>
 

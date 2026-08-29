@@ -19,14 +19,16 @@ public class MainViewModelTests
         return new MainViewModel(navigation, state, scanConfiguration, scanExecution);
     }
 
+    // GUI-7A: Inventory was added as a first-class navigation item, in the recommended
+    // Dashboard/Scan/Inventory/Results/Migration/Reports/Settings order.
     [Fact]
-    public void NavigationItems_HasExactlySixItems_InTheDocumentedOrder()
+    public void NavigationItems_HasExactlySevenItems_InTheDocumentedOrder()
     {
         var viewModel = Build(out _, out _);
 
         Assert.Equal(
         [
-            NavigationPage.Dashboard, NavigationPage.Scan, NavigationPage.Results,
+            NavigationPage.Dashboard, NavigationPage.Scan, NavigationPage.Inventory, NavigationPage.Results,
             NavigationPage.Migration, NavigationPage.Reports, NavigationPage.Settings
         ], viewModel.NavigationItems.Select(i => i.Page));
     }
@@ -41,6 +43,7 @@ public class MainViewModelTests
 
     [Theory]
     [InlineData(NavigationPage.Scan)]
+    [InlineData(NavigationPage.Inventory)]
     [InlineData(NavigationPage.Results)]
     [InlineData(NavigationPage.Migration)]
     [InlineData(NavigationPage.Reports)]
@@ -94,15 +97,16 @@ public class MainViewModelTests
         Assert.IsType<ScanConfigurationViewModel>(viewModel.CurrentPageViewModel);
     }
 
+    // GUI-7A: Dashboard is now a real page (DashboardOverviewViewModel), never a placeholder.
     [Fact]
-    public void NavigateCommand_ToScan_ReturnsToDashboard_StillShowsAPlaceholder()
+    public void NavigateCommand_ToScan_ReturnsToDashboard_ShowsTheRealDashboardOverview_NotAPlaceholder()
     {
         var viewModel = Build(out _, out _);
 
         viewModel.NavigateCommand.Execute(NavigationPage.Scan);
         viewModel.NavigateCommand.Execute(NavigationPage.Dashboard);
 
-        Assert.IsType<PlaceholderPageViewModel>(viewModel.CurrentPageViewModel);
+        Assert.IsType<DashboardOverviewViewModel>(viewModel.CurrentPageViewModel);
     }
 
     [Fact]

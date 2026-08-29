@@ -24,6 +24,7 @@ public sealed class MainViewModel : ObservableObject
     [
         (NavigationPage.Dashboard, "Nav.Dashboard.Label", "Nav.Dashboard.Description"),
         (NavigationPage.Scan, "Nav.Scan.Label", "Nav.Scan.Description"),
+        (NavigationPage.Inventory, "Nav.Inventory.Label", "Nav.Inventory.Description"),
         (NavigationPage.Results, "Nav.Results.Label", "Nav.Results.Description"),
         (NavigationPage.Migration, "Nav.Migration.Label", "Nav.Migration.Description"),
         (NavigationPage.Reports, "Nav.Reports.Label", "Nav.Reports.Description"),
@@ -104,18 +105,7 @@ public sealed class MainViewModel : ObservableObject
             ApplyCurrentPage(_navigationService.CurrentPage);
         };
         _scanExecutionViewModel.ReturnToConfigurationRequested += (_, _) => GoToScanConfiguration();
-        _scanExecutionViewModel.ViewResultsRequested += (_, _) =>
-        {
-            // GUI-4 §Step2-3: built purely from the ScanExecutionViewModel's own already-completed
-            // State — no executor, no engine, no re-fetch. A fresh instance per "View Results"
-            // click (so a later, different completed scan gets its own dashboard), but never
-            // rebuilt just because the user navigates away and back to NavigationPage.Results.
-            var dashboard = new ResultsDashboardViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService);
-            dashboard.NewScanRequested += (_, _) => GoToScanConfiguration();
-            _resultsDashboardViewModel = dashboard;
-            _navigationService.NavigateTo(NavigationPage.Results);
-            ApplyCurrentPage(_navigationService.CurrentPage);
-        };
+        _scanExecutionViewModel.ViewResultsRequested += (_, _) => ShowResults();
 
         ApplyCurrentPage(_navigationService.CurrentPage);
         RefreshStatusText();
@@ -170,6 +160,58 @@ public sealed class MainViewModel : ObservableObject
         ApplyCurrentPage(_navigationService.CurrentPage);
     }
 
+    /// <summary>GUI-4 §Step2-3, now also reachable from GUI-7A's Dashboard "View Results" button
+    /// (not only <see cref="ScanExecutionViewModel.ViewResultsRequested"/>): built purely from
+    /// the <see cref="ScanExecutionViewModel"/>'s own already-completed <c>State</c> — no
+    /// executor, no engine, no re-fetch. A fresh instance every time this is CALLED (so a later,
+    /// different completed scan gets its own dashboard), but never rebuilt merely because the
+    /// user navigates away and back to <see cref="NavigationPage.Results"/>.</summary>
+    private void ShowResults()
+    {
+        var dashboard = new ResultsDashboardViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService);
+        dashboard.NewScanRequested += (_, _) => GoToScanConfiguration();
+        _resultsDashboardViewModel = dashboard;
+        _navigationService.NavigateTo(NavigationPage.Results);
+        ApplyCurrentPage(_navigationService.CurrentPage);
+    }
+
+    /// <summary>GUI-7A: the Dashboard is rebuilt fresh on every visit (unlike Results/Inventory
+    /// selection state, it holds none of its own) directly from
+    /// <see cref="ScanExecutionViewModel.State"/> — the exact same source
+    /// <see cref="ResultsDashboardViewModel"/>/<see cref="InventoryExplorerViewModel"/> already
+    /// read, never a second pipeline execution or a separate "latest result" store.</summary>
+    private DashboardOverviewViewModel BuildDashboardOverviewViewModel()
+    {
+        var dashboard = new DashboardOverviewViewModel(_scanExecutionViewModel.State);
+        dashboard.StartScanRequested += (_, _) => GoToScanConfiguration();
+        dashboard.ViewResultsRequested += (_, _) => ShowResults();
+        dashboard.ViewInventoryRequested += (_, _) =>
+        {
+            _navigationService.NavigateTo(NavigationPage.Inventory);
+            ApplyCurrentPage(_navigationService.CurrentPage);
+        };
+        return dashboard;
+    }
+
+    /// <summary>GUI-7B: same "rebuild fresh on every visit" contract as Dashboard/Inventory — the
+    /// selected-application detail is presentation-only state, not worth the complexity of a
+    /// separate cache-invalidation rule for a page reachable independently of "View Results."</summary>
+    private MigrationOverviewViewModel BuildMigrationOverviewViewModel()
+    {
+        var migration = new MigrationOverviewViewModel(_scanExecutionViewModel.State);
+        migration.StartScanRequested += (_, _) => GoToScanConfiguration();
+        return migration;
+    }
+
+    /// <summary>GUI-7B: same "rebuild fresh on every visit" contract as Dashboard/Inventory — a
+    /// stale export/viewer result from a previous visit is never shown again on return.</summary>
+    private ReportsOverviewViewModel BuildReportsOverviewViewModel()
+    {
+        var reports = new ReportsOverviewViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService);
+        reports.StartScanRequested += (_, _) => GoToScanConfiguration();
+        return reports;
+    }
+
     private void ApplyCurrentPage(NavigationPage page)
     {
         foreach (var item in NavigationItems)
@@ -183,6 +225,21 @@ public sealed class MainViewModel : ObservableObject
             return;
         }
 
+        if (page == NavigationPage.Dashboard)
+        {
+            CurrentPageViewModel = BuildDashboardOverviewViewModel();
+            return;
+        }
+
+        // GUI-7A: InventoryExplorerViewModel already degrades to an explicit empty state
+        // (skill.md GUI-6A §14) with no completed scan — reachable at any time, never a
+        // placeholder, and never a second inventory engine.
+        if (page == NavigationPage.Inventory)
+        {
+            CurrentPageViewModel = new InventoryExplorerViewModel(_scanExecutionViewModel.State.PipelineResult, _scanExecutionViewModel.State.Status);
+            return;
+        }
+
         // GUI-4 §Step4: shows the real dashboard once "View Results" has been clicked at least
         // once; before that (or after a new session with no completed scan yet) the Results nav
         // item still shows the original GUI-1 placeholder — never a fabricated empty dashboard
@@ -190,6 +247,24 @@ public sealed class MainViewModel : ObservableObject
         if (page == NavigationPage.Results && _resultsDashboardViewModel is not null)
         {
             CurrentPageViewModel = _resultsDashboardViewModel;
+            return;
+        }
+
+        if (page == NavigationPage.Migration)
+        {
+            CurrentPageViewModel = BuildMigrationOverviewViewModel();
+            return;
+        }
+
+        if (page == NavigationPage.Reports)
+        {
+            CurrentPageViewModel = BuildReportsOverviewViewModel();
+            return;
+        }
+
+        if (page == NavigationPage.Settings)
+        {
+            CurrentPageViewModel = new SettingsViewModel(_scanConfigurationViewModel, _languageService);
             return;
         }
 

@@ -126,7 +126,17 @@ static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> 
     var applicationState = new ApplicationStateService();
     var languageService = new LanguageService();
     var scanConfiguration = new ScanConfigurationViewModel(new ScanConfigurationValidator(), new ScanRequestFactory());
-    var completedState = ScanResultFixtureFactory.BuildCompletedState();
+    // A real DiscoveryEntity, not the factory's own null/empty default — otherwise the standalone
+    // Inventory page (and its category-chip/item-selection bindings, exercised below) would have
+    // nothing to actually render, exactly the gap that let InventoryExplorerView.xaml's own
+    // Run-hosted bindings go untested against a real fresh-rebuild-plus-selection scenario.
+    var discoveryEntity = new ServerSleuth.Core.Models.Service
+    {
+        Id = "service:harness", Name = "HarnessService", Type = "Service", Source = "ServiceControlManager",
+        Status = ServerSleuth.Core.Enums.EntityStatus.Running, Confidence = ServerSleuth.Core.Evidence.Confidence.VeryHigh()
+    };
+    var completedState = ScanResultFixtureFactory.BuildCompletedState(
+        new ScanResultFixtureFactory.Options { DiscoveryEntities = [discoveryEntity] });
     var executor = new HarnessFakeScanExecutor
     {
         CompletionToReturn = new ScanCompletionState
@@ -169,6 +179,8 @@ static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> 
     window.UpdateLayout();
     PumpDispatcherOnce();
 
+    var reachedResultsDashboard = mainViewModel.CurrentPageViewModel is ResultsDashboardViewModel;
+
     if (switchToTraditionalChinese)
     {
         languageService.SetLanguage(GuiLanguage.TraditionalChinese);
@@ -183,13 +195,56 @@ static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> 
         PumpDispatcherOnce();
     }
 
+    // GUI-7B/7C: also exercise the standalone Inventory page (select the first item, so
+    // InventoryDetailView's binding actually attaches too), Migration (select the first
+    // application, so the reused ApplicationDetailView's binding actually attaches — the generic
+    // RunScenario walk above never has a completed scan, so it never reaches this), Reports (open
+    // the first report file, so the raw-text viewer's binding actually attaches too), and
+    // Settings, all with the SAME real completed scan, before/after the SAME language switch —
+    // matching how the "TargetDisplayName" Run-hosted binding crash on Dashboard was originally
+    // found (see DashboardView.xaml's own comment).
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Inventory);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+    if (mainViewModel.CurrentPageViewModel is InventoryExplorerViewModel inventory && inventory.Items.Count > 0)
+    {
+        inventory.SelectedItem = inventory.Items[0];
+        window.UpdateLayout();
+        PumpDispatcherOnce();
+    }
+
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Migration);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+    if (mainViewModel.CurrentPageViewModel is MigrationOverviewViewModel migration && migration.Applications.Count > 0)
+    {
+        migration.SelectApplicationCommand.Execute(migration.Applications[0]);
+        window.UpdateLayout();
+        PumpDispatcherOnce();
+    }
+
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Reports);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+    if (mainViewModel.CurrentPageViewModel is ReportsOverviewViewModel reports && reports.ReportFileNames.Count > 0)
+    {
+        reports.SelectedReportFileName = reports.ReportFileNames[0];
+        reports.OpenReportCommand.Execute(null);
+        window.UpdateLayout();
+        PumpDispatcherOnce();
+    }
+
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Settings);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+
     window.Close();
 
     var scenario = switchToTraditionalChinese ? "results dashboard, with language switch" : "results dashboard, without language switch";
 
-    if (mainViewModel.CurrentPageViewModel is not ResultsDashboardViewModel)
+    if (!reachedResultsDashboard)
     {
-        failures.Add($"[{scenario}] Navigation never reached the Results dashboard (got {mainViewModel.CurrentPageViewModel.GetType().Name}) — scenario did not actually test anything.");
+        failures.Add($"[{scenario}] Navigation never reached the Results dashboard — scenario did not actually test anything.");
     }
 
     if (getDispatcherException() is { } exception)

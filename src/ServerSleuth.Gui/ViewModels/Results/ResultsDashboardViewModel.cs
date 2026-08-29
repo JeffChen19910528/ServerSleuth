@@ -46,15 +46,10 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
         var pipeline = state.PipelineResult;
         var report = pipeline?.Report;
         var serverRisk = pipeline?.Aggregation.Server;
-        var riskByBoundary = serverRisk?.ApplicationSummaries.ToDictionary(a => a.ApplicationBoundaryId, StringComparer.Ordinal)
-            ?? new Dictionary<string, ApplicationRiskSummary>(StringComparer.Ordinal);
 
-        // Preserves ServerMigrationAssessmentReport.ApplicationAssessments' own ordinal-by-
-        // BoundaryId ordering — this constructor never sorts anything itself.
-        Applications = report?.ApplicationAssessments
-            .Select(a => new ApplicationRowViewModel(a, riskByBoundary.GetValueOrDefault(a.Assessment.ApplicationBoundaryId)))
-            .ToList()
-            ?? [];
+        // GUI-7B: the join itself now lives in ApplicationRowViewModel.BuildFrom (shared with
+        // MigrationOverviewViewModel) — this constructor still never sorts/recomputes anything.
+        Applications = ApplicationRowViewModel.BuildFrom(pipeline);
         FilteredApplications = Applications;
 
         Report = report;

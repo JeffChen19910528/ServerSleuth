@@ -44,7 +44,14 @@ public class NoCredentialShapedGuiStateTests
         typeof(GuiReportExportResult), typeof(GuiReportViewResult),
         // GUI-6A §18: the Discovery Inventory reads raw DiscoveryEntity data (Metadata/Evidence)
         // straight through — none of its own types may add a credential-shaped property either.
-        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel)
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel),
+        // GUI-7A: the Dashboard overview reads the same already-completed ScanExecutionState —
+        // same sweep.
+        typeof(DashboardOverviewViewModel),
+        // GUI-7B: Migration/Reports read the same already-completed ScanExecutionState/report;
+        // Settings only ever proxies ScanConfigurationViewModel's own already-checked properties
+        // plus GuiLanguage — same sweep for all three.
+        typeof(MigrationOverviewViewModel), typeof(ReportsOverviewViewModel), typeof(SettingsViewModel)
     ];
 
     [Theory]

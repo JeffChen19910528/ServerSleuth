@@ -74,18 +74,26 @@ public class MainViewModelLanguageTests
         Assert.Contains("尚未選擇掃描目標", viewModel.StatusText, StringComparison.Ordinal);
     }
 
+    /// <summary>GUI-7B made Migration a real page (<see cref="MigrationOverviewViewModel"/>,
+    /// no placeholder pages remain reachable at all) — this test's original premise (asserting a
+    /// <c>PlaceholderPageViewModel.Title</c> re-resolved) no longer applies to ANY page, so it now
+    /// verifies the equivalent, still-true behavior for a real page instead: a language switch
+    /// while Migration is showing re-runs <c>ApplyCurrentPage</c> and still lands back on
+    /// Migration (a fresh instance, matching every GUI-7A/GUI-7B page's own "rebuild fresh on
+    /// every ApplyCurrentPage call" contract — see <c>DashboardOverviewViewModel</c>'s doc
+    /// comment), never reverting to some other page or losing navigation state.</summary>
     [Fact]
-    public void SetLanguageCommand_UpdatesThePlaceholderPage_WhenOneIsCurrentlyShown()
+    public void SetLanguageCommand_KeepsShowingTheSamePage_WhenARealGui7bPageIsCurrentlyShown()
     {
         var viewModel = Build(out _);
         viewModel.NavigateCommand.Execute(NavigationPage.Migration);
-        var before = (PlaceholderPageViewModel)viewModel.CurrentPageViewModel;
-        Assert.Equal("Migration", before.Title);
+        var before = Assert.IsType<MigrationOverviewViewModel>(viewModel.CurrentPageViewModel);
 
         viewModel.SetLanguageCommand.Execute(GuiLanguage.TraditionalChinese);
 
-        var after = (PlaceholderPageViewModel)viewModel.CurrentPageViewModel;
-        Assert.Equal("遷移", after.Title);
+        var after = Assert.IsType<MigrationOverviewViewModel>(viewModel.CurrentPageViewModel);
+        Assert.Equal(NavigationPage.Migration, after.Page);
+        Assert.NotSame(before, after);
     }
 
     [Fact]

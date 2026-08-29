@@ -1754,6 +1754,305 @@ evidence still appears (its `Status` is whatever the scanner assigned, typically
 fabricated); Kubernetes/COM/binary categories are exercised only via hand-built fixtures in this
 environment, never a real cluster/registry/filesystem scan.
 
+## Phase GUI-7A Addendum — Lightweight Dashboard & Inventory (as built)
+
+Turns two long-standing GUI-1 placeholders (Dashboard) and one GUI-6A section previously reachable
+only *inside* Results (Discovery Inventory) into two real, lightweight, first-class navigation
+pages — deliberately NOT a CMDB/monitoring/vulnerability-management console. Scan remains the
+primary workflow; Dashboard/Inventory are read-only summaries of whatever `ScanPipelineResult` the
+last completed scan already produced.
+
+- **Dashboard (`DashboardOverviewViewModel`/`DashboardView.xaml`)**: built FRESH every time
+  `NavigationPage.Dashboard` is navigated to (unlike `ResultsDashboardViewModel`, it holds no
+  filter/selection state, so there is nothing to lose by rebuilding), directly from
+  `ScanExecutionViewModel.State` — the exact same source `ResultsDashboardViewModel`/
+  `InventoryExplorerViewModel` already read. Never touches `IDiscoveryEngine`/`ScanPipelineRunner`/
+  any engine (`NoScanExecutionFromGuiTests` extended). Every number is copied verbatim from an
+  already-computed summary (`ServerMigrationSummary`/`ServerRiskSummary`) or `ScanExecutionState`
+  itself — no new score, no percentage, no chart. Empty state (`ScanExecutionState.Idle`, or any
+  scan that never reached a report) shows a plain "no results yet" card with a Start Scan button —
+  never a zeroed-out fake summary.
+- **Inventory promoted to a standalone page, not a second engine**: `InventoryExplorerViewModel`
+  (GUI-6A) now also implements `IPageViewModel` (`Page => NavigationPage.Inventory`) and is
+  constructed directly by `MainViewModel` from `ScanExecutionViewModel.State.PipelineResult` —
+  the identical constructor call `ResultsDashboardViewModel` already makes for its own embedded
+  `Inventory` property. Its XAML (category chips, search, grid, detail panel) was extracted
+  verbatim out of `ResultsDashboardView.xaml` into a new reusable `InventoryExplorerView.xaml`,
+  which `ResultsDashboardView` now references via `DataContext="{Binding Inventory}"` instead of
+  duplicating the markup — one View, one ViewModel, two navigation paths to it (embedded in
+  Results, and standalone). Rebuilt fresh on every navigation to `NavigationPage.Inventory`, same
+  as Dashboard — its own filter state is presentation-only and cheap to rebuild (already the
+  established GUI-6A performance contract: O(N+M) once per construction, never O(N²)).
+- **Navigation**: `NavigationPage` gained one new member, `Inventory`, inserted between `Scan` and
+  `Results` (Dashboard/Scan/Inventory/Results/Migration/Reports/Settings — the recommended order).
+  `MainViewModel.ApplyCurrentPage` gained two new branches (Dashboard, Inventory); Migration/
+  Reports/Settings are untouched and remain `PlaceholderPageViewModel`s. `ShowResults()` (the body
+  of the former `ScanExecutionViewModel.ViewResultsRequested` handler) was extracted into its own
+  private method so both `ScanExecutionViewModel.ViewResultsRequested` and the Dashboard's own
+  "View Results" button route through the identical build/cache path — no second construction
+  path, no second navigation system.
+- **A real WPF binding-engine defect this phase's own real-window smoke test caught**: because
+  Dashboard is rebuilt fresh on every navigation/language switch (unlike every other page, which
+  is either cached or itself immutable-per-construction with no repeated rebuild), a `Run`-hosted
+  binding to one of its read-only string properties (`TargetDisplayName`) threw the SAME
+  `InvalidOperationException: TwoWay or OneWayToSource … read-only property` class of bug a prior,
+  unrelated session's post-mortem had already diagnosed and fixed on the Results dashboard's
+  Migration Summary panel (see that commit) — `Run`-in-`TextBlock` bindings on a read-only CLR
+  property are unsafe specifically when the bound object is being freshly re-attached to layout
+  (a collapsed `Expander`'s first expand, or — newly observed here — a `DataContext` swapped for a
+  brand-new instance on every navigate). Fixed the same way: replaced every `Run`-hosted binding in
+  `DashboardView.xaml`'s "Last Scan" card with plain `TextBlock.Text` bindings at default (unset)
+  `Mode`, matching the already-proven-safe convention the Discovery/Risk/Migration cards elsewhere
+  in this same file already used. Caught by `RealWindowNavigationSmokeTests`, which — per its own
+  doc comment — exists precisely to catch a real layout-pass defect no ViewModel-only test can see.
+- **Security boundary**: no new NuGet package, no new `ServerSleuth.*` assembly reference (still
+  only `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost`), no filesystem/process/network access
+  in either new View, no report regeneration on open, no scan execution from either page
+  (mechanically verified — see Tests below). `DashboardOverviewViewModel` added to
+  `NoCredentialShapedGuiStateTests`, `NoScanExecutionFromGuiTests`, and
+  `ResultsDashboardSecurityBoundaryTests`'s existing sweeps (additive only).
+- **Tests added**: `DashboardOverviewViewModelTests` (14, `ServerSleuth.Gui.Tests`) — empty state,
+  populated state, statistics copied verbatim from the same fixture `ResultsDashboardViewModel`
+  reads, deterministic rebuild, partial/cancelled/failed/zero-application scans, command wiring.
+  `MainViewModelDashboardAndInventoryNavigationTests` (9) — Dashboard/Inventory reachable through
+  the real `NavigationService`, real data after a completed scan (via the existing
+  `FakeGuiScanExecutor`, never a real pipeline run), Dashboard's own buttons routing to
+  Results/Inventory/Scan Configuration, Migration/Reports/Settings still placeholders, navigation
+  item order. `InventoryExplorerViewModelTests` (GUI-6A, unchanged) continues to cover Inventory's
+  category derivation/filtering/attribution/determinism unmodified — its subject type's core logic
+  was not touched, only additively given a `Page` property. Existing architecture/security tests
+  extended additively, never weakened.
+- **Regression**: `dotnet build` — 0 warnings, 0 errors. `ServerSleuth.Gui.Tests` full suite passes
+  (the same pre-existing intermittent `WaitUntilAsync`-timeout flakiness `MainViewModelResultsNavigationTests`/
+  `ScanExecutionViewModelTests` already showed in the GUI-6A regression run recurs here
+  independently of this phase's changes). Production code outside `ServerSleuth.Gui` was not
+  touched.
+- **Interactive/visual validation**: not performed — no interactive Windows desktop session
+  available in this environment (same disclosed constraint as every prior GUI phase). Verified
+  instead via `dotnet build`, the WPF XAML compiler, the automated test suite above, and
+  `ServerSleuth.Gui.RealWindowHarness`/`RealWindowNavigationSmokeTests` — a real `Application`/
+  `MainWindow`/layout pass through every page, with and without a language switch, which is what
+  actually caught the binding defect described above.
+
+**Known Limitations**: Dashboard shows only Critical/High/Medium risk counts (not the full
+Critical/High/Medium/Low/Info breakdown Results already has) and only the four migration-status
+counts, per the phase's own "concise summary" brief — the full breakdown remains one click away via
+"View Results." Dashboard and the standalone Inventory page rebuild on every navigation (no
+selection/filter state is preserved across a nav-away-and-back) — an intentional simplicity
+trade-off, not a defect, since neither page owns state worth preserving the way Results' filters
+do.
+
+## Phase GUI-7B Addendum — Lightweight Migration, Reports & Settings (as built)
+
+Completes the visible GUI-1 navigation with three more real, lightweight pages — Migration,
+Reports, Settings — following GUI-7A's exact established conventions (rebuild fresh on every
+navigation, reuse existing data/services, no new engine, no new score). Presentation/UX only:
+every byte of Migration/Risk/Report data comes from the existing Discovery/Analysis/Risk/
+Migration/Reporting engines, untouched by this phase.
+
+- **Migration (`MigrationOverviewViewModel`/`MigrationView.xaml`, both new)**: a summary of the
+  latest completed scan's migration assessment — Blocked/Needs Remediation/Ready With Conditions/
+  Ready counts (copied verbatim from `ServerMigrationSummary`, never recalculated) plus an
+  application list. Selecting a row reuses GUI-4's own `ApplicationDetailViewModel`/
+  `ApplicationDetailView.xaml` VERBATIM — issues/actions/verification checks/dependencies,
+  declarative only, no Execute/Apply/Install/Restart affordance anywhere (none was added). The
+  application-row join itself (`ApplicationMigrationSummary` + `ApplicationRiskSummary`, keyed by
+  boundary id) was extracted out of `ResultsDashboardViewModel`'s constructor into a new
+  `ApplicationRowViewModel.BuildFrom(ScanPipelineResult?)` static factory — both
+  `ResultsDashboardViewModel` and `MigrationOverviewViewModel` now call the SAME method, so the
+  join logic exists exactly once (re-verified byte-for-byte behavior-preserving via the full,
+  unmodified `ResultsDashboardViewModelTests`/`ResultsDashboardDeterminismAndMutationTests` suite
+  before and after the refactor).
+- **Reports (`ReportsOverviewViewModel`/`ReportsView.xaml`, both new)**: the latest completed
+  scan's already-written report files, reusing the EXACT SAME `IGuiReportExportService`/
+  `IGuiReportViewerService` boundary GUI-5 established for Results — no second export
+  implementation, no `File.WriteAllText`/`File.WriteAllBytes`/`StreamWriter`/`FileStream`
+  anywhere in `ServerSleuth.Gui` (new `NoDirectReportFileWritingTests`, a source-text sweep since
+  these are static BCL calls with no type to reflect on). JSON/HTML are shown as plain text via
+  a read-only `TextBox`, exactly like Results — no WebView2, no embedded browser, no HTML
+  rendering, no JavaScript execution.
+- **Settings (`SettingsViewModel`/`SettingsView.xaml`, both new)**: deliberately NOT a new
+  settings framework/subsystem — every property is a THIN, DIRECT proxy over state that already
+  exists as the session's single long-lived instance: `ScanConfigurationViewModel` (a DI
+  singleton) for Default Output Directory/Report Format/Overwrite Policy/Verbose, and the
+  existing `ILanguageService` for language. There is no separate storage anywhere in this type —
+  reading/writing e.g. `DefaultReportFormat` reads/writes `ScanConfigurationViewModel.OutputFormat`
+  directly, so a change is immediately what Scan Configuration's own selector shows next time it's
+  opened, with zero risk of the two drifting apart. Since a `ScanRequest` is an immutable record
+  built once at "Start Scan" time, nothing here can retroactively alter one already built (proven
+  by a dedicated test). No password/SecureString/credential-shaped property exists anywhere on
+  this type — `ScanConfigurationViewModel` itself structurally cannot expose its private
+  credential field as a property (see that type's own `SetPassword` doc comment), so there is
+  nothing for this proxy to accidentally surface either. Appearance/theme selection was
+  deliberately left out (see Known Limitations) — no existing theme-switching infrastructure to
+  hook into, and skill.md's own instruction is to leave out anything that would need a new
+  subsystem rather than force one in.
+- **Navigation**: no `NavigationPage` change needed (Migration/Reports/Settings already existed
+  in the enum since GUI-1) — only `MainViewModel.ApplyCurrentPage` gained three branches, all
+  following GUI-7A's exact "rebuild fresh from `ScanExecutionViewModel.State`" pattern. No second
+  navigation system, no `Dictionary`/`HashSet` for navigation state (still the same ordered array
+  + `NavigationService`).
+- **Security**: no new NuGet package, no new `ServerSleuth.*` assembly reference (still only
+  `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost`), no scan/pipeline execution from any of
+  the three new types (`NoScanExecutionFromGuiTests` extended), no credential-shaped property
+  (`NoCredentialShapedGuiStateTests`/`ResultsDashboardSecurityBoundaryTests` extended), no direct
+  raw report-file writing (`NoDirectReportFileWritingTests`, new). All additive — nothing existing
+  was weakened.
+- **A real WPF binding-engine pitfall avoided proactively, not just fixed reactively**: since
+  Migration/Reports (like Dashboard before them) rebuild fresh on every navigation, every binding
+  in `MigrationView.xaml`/`ReportsView.xaml` was written as a plain `TextBlock.Text` binding at
+  default `Mode` from the start — never a `Run`-hosted one — matching the already-proven-safe
+  convention GUI-7A's own post-mortem established (see `DashboardView.xaml`'s comment). Verified
+  empirically, not just by inspection: `ServerSleuth.Gui.RealWindowHarness`'s own
+  `RunResultsDashboardScenario` was extended to also visit Migration (selecting the first
+  application, so `ApplicationDetailView`'s binding actually attaches), Reports (opening the
+  first report file), and Settings, with a real completed scan and both with and without a
+  language switch — exit code 0, no exception, before this phase's documentation was written.
+- **Tests added**: `MigrationOverviewViewModelTests` (16), `ReportsOverviewViewModelTests` (14),
+  `SettingsViewModelTests` (9), `MainViewModelMigrationReportsSettingsNavigationTests` (13) — all
+  additive, covering empty/populated/partial/cancelled/failed/zero-application states, summary
+  counts and application ordering copied verbatim from the source fixture, selection exposing
+  real issues/actions/checks/dependencies without mutating the master list, Export/Viewer
+  commands calling the injected fakes with the exact chosen options (never a second
+  implementation), export-failure representation, HTML shown as raw text, Settings proxying
+  `ScanConfigurationViewModel` live (including the "already-built `ScanRequest` is never altered"
+  guarantee), and full navigation reachability for all seven pages through the one existing
+  `NavigationService`. Four existing architecture-test files extended additively (three GUI-7A
+  already touched, plus the new `NoDirectReportFileWritingTests`).
+- **Regression**: `dotnet build` — 0 warnings, 0 errors across the whole solution. Every non-GUI
+  test project passes 100% (confirms zero production changes/regression outside
+  `ServerSleuth.Gui`, and that no backend code was touched this phase at all). `ServerSleuth.Gui.Tests`
+  reproduces the SAME pre-existing, environment-specific async cold-start flakiness already
+  documented in the GUI-6A/GUI-7A entries above (a fresh test process's first `Task.Run`-based
+  test can exceed its polling deadline on this sandboxed machine, then pass instantly on any
+  later run) — re-confirmed the same way GUI-7A's own entry did, by isolating a single affected
+  test and observing the identical fail-then-immediately-pass pattern.
+- **Real-machine validation**: not performed — no interactive Windows desktop session available
+  in this environment (same disclosed constraint as every prior GUI phase). Verified instead via
+  `dotnet build`, the WPF XAML compiler, the automated test suite above, and
+  `ServerSleuth.Gui.RealWindowHarness`/`RealWindowNavigationSmokeTests` — a real `Application`/
+  `MainWindow`/layout pass through every page (including selecting a Migration application and
+  opening a Report file) with a real completed scan, with and without a language switch.
+
+**Known Limitations**: no Appearance/Theme setting (no existing theme-switching infrastructure to
+build on — documented rather than forcing a new subsystem in, per this phase's own instruction);
+Migration/Reports rebuild on every navigation, so a selected application/opened report resets on
+nav-away-and-back (the same intentional trade-off GUI-7A already established for Dashboard/
+Inventory); Settings' Language section duplicates the header toggle for discoverability rather
+than replacing it — both call the identical `ILanguageService`, never two mechanisms.
+
+## Phase GUI-7C Addendum — Final Integration, Acceptance & Release Hardening (as built)
+
+The final GUI hardening/acceptance phase — no new functionality, only integration verification,
+genuine-defect fixing, and final v1.0.0 release evidence. All seven pages (Dashboard/Scan/
+Inventory/Results/Migration/Reports/Settings) were confirmed real and functional; none is a
+placeholder any more.
+
+- **Scope discipline**: no scanner/Risk rule/Migration rule/execution capability/HTTP API/PDF/
+  WebView2/cloud/database/monitoring/scheduling/credential vault was added. No backend project
+  (`Core`/`Analysis`/`Infrastructure`/`Windows`/`Linux`/`Cli`/`Reporting`) was touched — every
+  production change this phase is under `src/ServerSleuth.Gui`.
+- **Two genuine WPF binding-safety defects found and fixed** (skill.md §15's own binding sweep,
+  taken seriously rather than treated as a formality):
+  1. `InventoryExplorerView.xaml` still had three `Run`-hosted bindings carried over verbatim
+     from GUI-6A (`FilteredItems.Count`, and a `Type`/`Count` pair inside the category-chip
+     `DataTemplate`). GUI-7A had already promoted this View to also serve as a standalone,
+     freshly-rebuilt-per-navigation page (`NavigationPage.Inventory`) — exactly the scenario a
+     `Run`-hosted binding on a read-only property already threw `InvalidOperationException` for
+     on Dashboard (see the GUI-7A addendum above) — but no test had ever exercised the standalone
+     page with real, non-empty inventory data to actually trigger it. Fixed by converting all
+     three to plain `TextBlock.Text` bindings at default `Mode`, matching the convention every
+     other GUI-7A/7B page already follows. Caught by extending
+     `ServerSleuth.Gui.RealWindowHarness`'s own completed-scan scenario to give the fixture a real
+     `DiscoveryEntity` and select an inventory item on the standalone page (it previously only
+     ever saw an empty inventory there) — confirmed the fix by running the harness both before
+     converting the InventoryDetailView pass-through (already safe) and after.
+  2. `InventoryExplorerView.xaml` and `SettingsView.xaml` had no `ScrollViewer` of their own.
+     `MainWindow.xaml`'s content `ContentControl` provides none either (every OTHER top-level
+     page — Dashboard/Migration/Reports/Results/Scan Configuration/Scan Execution — wraps
+     itself in one), so as standalone nav pages, a tall detail panel (long Evidence/Metadata
+     lists) on a shorter/resized window would have been clipped with no way to reach it — a real
+     window-resizing defect (skill.md §14). Fixed by wrapping both in `ScrollViewer
+     VerticalScrollBarVisibility="Auto"`, matching every other page. Nesting one inside
+     `ResultsDashboardView`'s own outer `ScrollViewer` (the embedded-Inventory case) is a
+     standard, well-tolerated WPF pattern, not a defect.
+- **Verification method**: `ServerSleuth.Gui.RealWindowHarness`'s completed-scan scenario now
+  exercises all seven pages with a real completed scan and REAL, non-empty data throughout —
+  selects an Inventory item (new), selects a Migration application, opens a Reports file, visits
+  Settings — with and without a language switch. Exit code 0 after both fixes above.
+- **No other genuine defects found** in the review sweep (localization coverage, empty/partial/
+  cancelled/failed states across Dashboard/Migration/Reports, navigation reachability, no
+  execution affordance anywhere in Migration, credential isolation, no duplicate pipeline/
+  exporter/report-writing path) — all were already correct from GUI-1 through GUI-7B and are
+  re-confirmed, not re-implemented, by this phase's regression run below. The three hardcoded
+  `ComboBoxItem` labels in `ScanConfigurationView.xaml` (`Windows`/`Linux`, `JSON`/`HTML`/`Both`)
+  are pre-existing, intentional exclusions from `LocalizedStrings`' own documented scope (enum-
+  value labels, not static UI text) — not a new gap, left as-is.
+- **Regression** (full solution):
+  ```
+  ServerSleuth.Core.Tests:               61 passed, 0 failed, 0 skipped
+  ServerSleuth.Analysis.Tests:          445 passed, 0 failed, 0 skipped
+  ServerSleuth.Infrastructure.Tests:    171 passed, 0 failed, 0 skipped
+  ServerSleuth.Linux.Tests:             345 passed, 0 failed, 0 skipped
+  ServerSleuth.Windows.Tests:           376 passed, 0 failed, 0 skipped
+  ServerSleuth.Cli.Tests (net8.0):       98 passed, 0 failed, 0 skipped
+  ServerSleuth.Cli.Tests (net8.0-win):  104 passed, 0 failed, 0 skipped
+  ServerSleuth.Reporting.Tests:         146 passed, 0 failed, 0 skipped
+  ServerSleuth.Integration.Tests:        14 passed, 0 failed, 0 skipped
+  ServerSleuth.Gui.ExecutionHost.Tests:  22 passed, 0 failed, 0 skipped
+  ServerSleuth.Gui.Tests:                370 total; 369-370 passed per run (0-1 intermittent
+                                          WaitUntilAsync-timeout failure, always in the
+                                          pre-existing MainViewModelResultsNavigationTests)
+  ```
+  Every non-GUI project passes 100% across an independent full run this phase — confirms zero
+  production changes/regression outside `ServerSleuth.Gui`. `ServerSleuth.Gui.Tests`'s
+  intermittent failures remain the same pre-existing, environment-specific async cold-start
+  flakiness documented in every GUI phase since GUI-6A (re-isolated and re-confirmed this phase
+  too); no test was deleted, weakened, or rewritten to reach green.
+- **Architecture/security tests**: `NoDirectPlatformAccessTests`, `NoDuplicatePipelineEngineTests`,
+  `NoDuplicateDomainModelTests`, `NoCredentialShapedGuiStateTests`,
+  `ResultsDashboardSecurityBoundaryTests`, `NoScanExecutionFromGuiTests`,
+  `NoDirectReportFileWritingTests` all re-run independently and pass — reference boundary still
+  exactly `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost`, no `SSH.NET`/
+  `Microsoft.Management.Infrastructure`/`System.Net.Http` reference, no credential-shaped type
+  anywhere reachable from any of the seven pages, no duplicate engine, no direct raw report-file
+  write.
+- **Release build**: `build-release.ps1` run end-to-end from a clean state — Windows GUI
+  (160.13 MB), Windows CLI (71.78 MB), Linux CLI (70.19 MB), both archives, `VERSION` (`1.0.0`),
+  `SHA256SUMS.txt`. The script's own package-content audit found zero forbidden development
+  artifacts in either archive; independently re-verified by hand (`ServerSleuth-v1.0.0-windows-x64.zip`
+  → exactly `README.txt`/`serversleuth-cli.exe`/`ServerSleuth.exe`/`VERSION`;
+  `ServerSleuth-v1.0.0-linux-x64.tar.gz` → exactly `README.txt`/`serversleuth`/`VERSION`; no
+  `.pdb`/`.dll`/`.deps.json`/`.runtimeconfig.json`/source file in either). All 5 SHA-256 checksums
+  independently recomputed with `sha256sum` (a different tool than the script's own
+  `Get-FileHash`) and matched exactly. Both executables and both archives scanned for
+  secret-shaped literal patterns (`password=`, PEM private-key headers, `Server=…Password=`
+  connection strings): zero matches. `windows/ServerSleuth.exe`, copied to an isolated temp
+  directory (never the repo's own `bin`/`obj`) and launched: alive after 5 seconds, terminated
+  cleanly on request with no orphan process — non-visual liveness only, not interactive
+  validation (see below). `windows/serversleuth-cli.exe`, likewise from an isolated directory:
+  `--version` (`1.0.0.0`, the existing documented assembly-version contract — unchanged),
+  `--help`, and a real local scan all behaved correctly.
+- **Interactive GUI validation**: **not performed** — no interactive Windows desktop
+  session/automation available in this environment, the same disclosed constraint present in
+  every GUI phase back through GUI-4A. `FINAL_USER_ACCEPTANCE_CHECKLIST.md` was updated with the
+  full current seven-page click-through (Dashboard/Inventory/Migration/Reports/Settings added —
+  it previously only covered the GUI-4/GUI-5 feature set) for a human to complete.
+- **Documentation**: this addendum; `PROGRESS.md` gained a matching GUI-7C entry;
+  `docs/CHANGELOG.md` gained an Unreleased (Phase GUI-7C) entry; `docs/releases/FINAL_RELEASE_SIGNOFF.md`
+  and `docs/releases/FINAL_USER_ACCEPTANCE_CHECKLIST.md` (both last updated at Phase 11C, before
+  GUI-6A/7A/7B/7C existed) updated with this phase's own final evidence. `IMPLEMENTATION_PLAN.md`
+  not touched (does not track GUI phases, per GUI-7/GUI-7A/GUI-7B precedent).
+
+**Known Limitations** (carried forward, none newly introduced, none silently resolved): no
+Appearance/Theme setting; Migration/Reports/Inventory rebuild on every navigation (no
+cross-navigation selection/filter persistence); Settings' Language section duplicates the header
+toggle; no interactive/visual GUI validation performed in this environment (see
+`FINAL_USER_ACCEPTANCE_CHECKLIST.md` for the outstanding human click-through); no live SSH/WinRM
+remote acceptance performed (no authorized live host available, unchanged since Phase 10D-2/
+11C); intermittent `WaitUntilAsync`/`Task.Run` cold-start test flakiness persists in this specific
+sandbox, pre-existing and environmental, not a release blocker.
+
 ## Decisions Log
 
 | Decision | Rationale | Date |

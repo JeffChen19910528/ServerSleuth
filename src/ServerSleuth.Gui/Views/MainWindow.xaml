@@ -22,6 +22,21 @@
         <DataTemplate DataType="{x:Type results:ResultsDashboardViewModel}">
             <views:ResultsDashboardView />
         </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:DashboardOverviewViewModel}">
+            <views:DashboardView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type results:InventoryExplorerViewModel}">
+            <views:InventoryExplorerView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:MigrationOverviewViewModel}">
+            <views:MigrationView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:ReportsOverviewViewModel}">
+            <views:ReportsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type viewModels:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>

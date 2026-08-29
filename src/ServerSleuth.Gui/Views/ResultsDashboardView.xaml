@@ -18,9 +18,6 @@
         <DataTemplate DataType="{x:Type results:ApplicationDetailViewModel}">
             <views:ApplicationDetailView />
         </DataTemplate>
-        <DataTemplate DataType="{x:Type results:InventoryDetailViewModel}">
-            <views:InventoryDetailView />
-        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
@@ -73,71 +70,12 @@
 
             <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
 
-                <!-- DISCOVERY INVENTORY (skill.md GUI-6A): the raw, evidence-backed "what did
-                     this server actually have on it" list — every discovered entity, browsable
-                     by category and search, distinct from the Applications/Risk/Migration
-                     summaries below it. -->
-                <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0" DataContext="{Binding Inventory}">
-                    <StackPanel>
-                        <TextBlock Text="{DynamicResource Dashboard.Inventory}" Style="{StaticResource Dashboard.SectionTitle}" />
-
-                        <TextBlock Text="{DynamicResource Dashboard.InventoryPartialCoverage}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap"
-                                   Visibility="{Binding HasPartialCoverage, Converter={StaticResource BoolToVisibility}}" Margin="0,0,0,8" />
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <ComboBox Width="200" Margin="0,0,8,0"
-                                      ToolTip="{DynamicResource Dashboard.InventoryCategoryTooltip}"
-                                      ItemsSource="{Binding CategoryFilterOptions}"
-                                      SelectedItem="{Binding SelectedCategory}" />
-                            <TextBox Width="240" Margin="0,0,8,0" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                     ToolTip="{DynamicResource Dashboard.InventorySearchTooltip}" />
-                            <TextBlock Style="{StaticResource Text.Muted}" VerticalAlignment="Center">
-                                <Run Text="{DynamicResource Dashboard.InventoryCountLabel}" /><Run Text="{Binding FilteredItems.Count, Mode=OneWay}" />
-                            </TextBlock>
-                        </StackPanel>
-
-                        <!-- Category counts (skill.md GUI-6A §6) -->
-                        <ItemsControl ItemsSource="{Binding Categories}" Margin="0,0,0,8">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="{x:Type results:InventoryCategoryViewModel}">
-                                    <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,16,4">
-                                        <Run Text="{Binding Type, Mode=OneWay}" FontWeight="SemiBold" />
-                                        <Run Text=": " /><Run Text="{Binding Count, Mode=OneWay}" />
-                                    </TextBlock>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <TextBlock Text="{DynamicResource Dashboard.NoInventory}" Style="{StaticResource Text.Muted}"
-                                   Visibility="{Binding HasNoInventory, Converter={StaticResource BoolToVisibility}}" />
-
-                        <ListView ItemsSource="{Binding FilteredItems}"
-                                  SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                                  MaxHeight="320"
-                                  Visibility="{Binding HasNoInventory, Converter={StaticResource InverseBoolToVisibility}}">
-                            <ListView.View>
-                                <GridView>
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColType}" Width="140" DisplayMemberBinding="{Binding Type}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColName}" Width="220" DisplayMemberBinding="{Binding Name}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColStatus}" Width="90" DisplayMemberBinding="{Binding Status}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColVersion}" Width="90" DisplayMemberBinding="{Binding Version}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColArchitecture}" Width="90" DisplayMemberBinding="{Binding Architecture}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColOwnerApplication}" Width="160" DisplayMemberBinding="{Binding ApplicationDisplay}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColEvidenceCount}" Width="70" DisplayMemberBinding="{Binding EvidenceCount}" />
-                                    <GridViewColumn Header="{DynamicResource Dashboard.ColPath}" Width="260" DisplayMemberBinding="{Binding Path}" />
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                    </StackPanel>
-                </Border>
-
-                <!-- SELECTED INVENTORY ITEM DETAIL — a null Content renders nothing. -->
-                <ContentControl Content="{Binding Inventory.SelectedDetail}" Margin="0,16,0,0" />
+                <!-- DISCOVERY INVENTORY (skill.md GUI-6A, promoted to a standalone reusable View
+                     in GUI-7A): the raw, evidence-backed "what did this server actually have on
+                     it" list — every discovered entity, browsable by category and search,
+                     distinct from the Applications/Risk/Migration summaries below it. Same View/
+                     ViewModel MainViewModel's own standalone Inventory nav page uses. -->
+                <views:InventoryExplorerView DataContext="{Binding Inventory}" Margin="0,16,0,0" />
 
                 <!-- APPLICATIONS -->
                 <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">

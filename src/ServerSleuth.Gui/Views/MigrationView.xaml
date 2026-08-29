@@ -1,0 +1,94 @@
+<UserControl x:Class="ServerSleuth.Gui.Views.MigrationView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:results="clr-namespace:ServerSleuth.Gui.ViewModels.Results"
+             xmlns:views="clr-namespace:ServerSleuth.Gui.Views">
+
+    <!-- GUI-7B: a lightweight, read-only summary of the latest completed scan's migration
+         assessment. Every binding below reads a property MigrationOverviewViewModel already
+         computed from ScanExecutionState/ScanPipelineResult — nothing here can start a scan,
+         rerun MigrationAssessmentEngine/RiskRuleEngine, or execute a migration action (no
+         Execute/Apply/Install/Restart affordance exists anywhere in this file or in the reused
+         ApplicationDetailView below it). Plain TextBlock.Text bindings only, never a Run-hosted
+         one, at default (unset) Mode — this page rebuilds fresh on every navigation, the same
+         "freshly re-attached to layout" scenario that made a Run-hosted binding on Dashboard
+         throw (see DashboardView.xaml's own comment). -->
+    <UserControl.Resources>
+        <DataTemplate DataType="{x:Type results:ApplicationDetailViewModel}">
+            <views:ApplicationDetailView />
+        </DataTemplate>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+            <TextBlock Text="{DynamicResource Migration.Title}" Style="{StaticResource Text.PageTitle}" />
+
+            <!-- EMPTY STATE — no completed scan yet. Never a fabricated/zeroed-out summary. -->
+            <StackPanel Visibility="{Binding HasNoResults, Converter={StaticResource BoolToVisibility}}" Margin="0,16,0,0">
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Migration.NoResultsTitle}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Migration.NoResultsBody}" Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <Button Content="{DynamicResource ScanConfig.StartScan}" Command="{Binding StartScanCommand}"
+                                Style="{StaticResource App.Button}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- POPULATED STATE -->
+            <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}" Margin="0,16,0,0">
+
+                <!-- MIGRATION SUMMARY — copied verbatim from ServerMigrationSummary, never recalculated. -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.Migration}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.BlockedLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding BlockedApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.NeedsRemediationLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding NeedsRemediationApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.ReadyWithConditionsLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ReadyWithConditionsApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.ReadyLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ReadyApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- APPLICATION MIGRATION LIST -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Migration.Applications}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Dashboard.NoApplications}" Style="{StaticResource Text.Muted}"
+                                   Visibility="{Binding Applications.Count, Converter={StaticResource CountToInverseVisibility}}" />
+                        <ListView ItemsSource="{Binding Applications}"
+                                  SelectedItem="{Binding SelectedApplication, Mode=TwoWay}"
+                                  MaxHeight="320"
+                                  Visibility="{Binding Applications.Count, Converter={StaticResource CountToVisibility}}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColApplication}" Width="220" DisplayMemberBinding="{Binding ApplicationName}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColMigrationStatus}" Width="150" DisplayMemberBinding="{Binding MigrationStatus}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColIssues}" Width="70" DisplayMemberBinding="{Binding IssueCount}" />
+                                    <GridViewColumn Header="{DynamicResource Dashboard.ColDependencies}" Width="90" DisplayMemberBinding="{Binding DependencyCount}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </StackPanel>
+                </Border>
+
+                <!-- SELECTED APPLICATION DETAIL — reuses GUI-4's own ApplicationDetailView/
+                     ApplicationDetailViewModel verbatim; a null Content renders nothing. -->
+                <ContentControl Content="{Binding SelectedApplicationDetail}" Margin="0,16,0,0" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

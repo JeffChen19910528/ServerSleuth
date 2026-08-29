@@ -1,0 +1,54 @@
+<UserControl x:Class="ServerSleuth.Gui.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:viewModels="clr-namespace:ServerSleuth.Gui.ViewModels"
+             xmlns:services="clr-namespace:ServerSleuth.Gui.Services">
+
+    <!-- GUI-7B: deliberately not a settings framework — every field here reads/writes
+         ScanConfigurationViewModel's own existing properties directly through SettingsViewModel's
+         thin proxy (see that type's own doc comment), and the language buttons call the SAME
+         ILanguageService the header toggle already uses. No password/credential field exists
+         anywhere on this page. -->
+    <!-- GUI-7C: wrapped in its own ScrollViewer, matching every other top-level page — MainWindow's
+         content ContentControl provides none of its own. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel MaxWidth="600" HorizontalAlignment="Left">
+        <TextBlock Text="{DynamicResource Settings.Title}" Style="{StaticResource Text.PageTitle}" />
+
+        <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Settings.General}" Style="{StaticResource Dashboard.SectionTitle}" />
+
+                <TextBlock Text="{DynamicResource Settings.DefaultOutputDirectory}" Style="{StaticResource Text.Muted}" Margin="0,8,0,0" />
+                <TextBox Width="360" HorizontalAlignment="Left" Text="{Binding DefaultOutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+
+                <TextBlock Text="{DynamicResource Settings.DefaultReportFormat}" Style="{StaticResource Text.Muted}" Margin="0,12,0,0" />
+                <ComboBox Width="160" HorizontalAlignment="Left"
+                          ItemsSource="{Binding Source={x:Static viewModels:SettingsViewModel.ReportFormatOptions}}"
+                          SelectedItem="{Binding DefaultReportFormat}" />
+
+                <TextBlock Text="{DynamicResource Settings.DefaultOverwritePolicy}" Style="{StaticResource Text.Muted}" Margin="0,12,0,0" />
+                <ComboBox Width="160" HorizontalAlignment="Left"
+                          ItemsSource="{Binding Source={x:Static viewModels:SettingsViewModel.OverwritePolicyOptions}}"
+                          SelectedItem="{Binding DefaultOverwritePolicy}" />
+
+                <CheckBox Content="{DynamicResource Settings.VerboseOutput}" IsChecked="{Binding DefaultVerbose}" Margin="0,16,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Dashboard.Card}" Margin="0,16,0,0">
+            <StackPanel>
+                <TextBlock Text="{DynamicResource Settings.Language}" Style="{StaticResource Dashboard.SectionTitle}" />
+                <StackPanel Orientation="Horizontal">
+                    <Button Content="{DynamicResource Language.English}"
+                            Command="{Binding SetLanguageCommand}" CommandParameter="{x:Static services:GuiLanguage.English}"
+                            Margin="0,0,4,0" Padding="8,2" />
+                    <Button Content="{DynamicResource Language.TraditionalChinese}"
+                            Command="{Binding SetLanguageCommand}" CommandParameter="{x:Static services:GuiLanguage.TraditionalChinese}"
+                            Padding="8,2" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,5 +1,6 @@
 using ServerSleuth.Analysis.Migration.Consolidation;
 using ServerSleuth.Analysis.Migration.Models;
+using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Analysis.Risk.Models;
 using ServerSleuth.Core.Evidence;
 
@@ -17,6 +18,27 @@ public sealed class ApplicationRowViewModel
     public ApplicationRowViewModel(ApplicationMigrationSummary migration, ApplicationRiskSummary? risk)
     {
         Detail = new ApplicationDetailViewModel(migration, risk);
+    }
+
+    /// <summary>GUI-7B: the exact join <see cref="Results.ResultsDashboardViewModel"/>'s own
+    /// constructor already performed, extracted so <c>MigrationOverviewViewModel</c> can build
+    /// the identical row list from the same <see cref="ScanPipelineResult"/> without duplicating
+    /// the join logic (never a second migration/risk recomputation — both callers read the exact
+    /// same already-consolidated <c>ApplicationMigrationSummary</c>/<c>ApplicationRiskSummary</c>
+    /// records).</summary>
+    public static IReadOnlyList<ApplicationRowViewModel> BuildFrom(ScanPipelineResult? pipeline)
+    {
+        var report = pipeline?.Report;
+        var serverRisk = pipeline?.Aggregation.Server;
+        var riskByBoundary = serverRisk?.ApplicationSummaries.ToDictionary(a => a.ApplicationBoundaryId, StringComparer.Ordinal)
+            ?? new Dictionary<string, ApplicationRiskSummary>(StringComparer.Ordinal);
+
+        // Preserves ServerMigrationAssessmentReport.ApplicationAssessments' own ordinal-by-
+        // BoundaryId ordering — never sorted here.
+        return report?.ApplicationAssessments
+            .Select(a => new ApplicationRowViewModel(a, riskByBoundary.GetValueOrDefault(a.Assessment.ApplicationBoundaryId)))
+            .ToList()
+            ?? [];
     }
 
     /// <summary>The reusable detail panel for this row — built once, shown whenever this row is

@@ -2,6 +2,7 @@ using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Core.Boundaries;
 using ServerSleuth.Core.Models;
 using ServerSleuth.Gui.Models;
+using ServerSleuth.Gui.Navigation;
 
 namespace ServerSleuth.Gui.ViewModels.Results;
 
@@ -23,8 +24,14 @@ namespace ServerSleuth.Gui.ViewModels.Results;
 /// Determinism (skill.md GUI-6A §13): <see cref="Items"/> is sorted Type → Name → Id (all
 /// ordinal), a fixed order that depends on none of Dictionary/HashSet enumeration order or DI
 /// registration order — the same result every time for the same <see cref="ScanPipelineResult"/>.
+///
+/// GUI-7A: also implements <see cref="IPageViewModel"/> so the SAME instance/type can be shown
+/// as a first-class standalone "Inventory" navigation page (<see cref="MainViewModel"/> builds
+/// one directly, exactly like this constructor is already called from
+/// <see cref="Results.ResultsDashboardViewModel"/>) — no second inventory engine, no wrapper
+/// ViewModel, no duplicated entity-parsing logic.
 /// </summary>
-public sealed class InventoryExplorerViewModel : ObservableObject
+public sealed class InventoryExplorerViewModel : ObservableObject, IPageViewModel
 {
     public InventoryExplorerViewModel(ScanPipelineResult? pipeline, ScanExecutionStatus status)
     {
@@ -51,6 +58,12 @@ public sealed class InventoryExplorerViewModel : ObservableObject
 
         _filteredItems = Items;
     }
+
+    /// <summary>GUI-7A: only meaningful when this instance is shown as MainViewModel's standalone
+    /// Inventory page — when embedded as <see cref="Results.ResultsDashboardViewModel.Inventory"/>
+    /// it is simply unused, exactly like every other <see cref="IPageViewModel"/> would be if
+    /// held as a plain property rather than shown via <c>CurrentPageViewModel</c>.</summary>
+    public NavigationPage Page => NavigationPage.Inventory;
 
     /// <summary>GUI-6A §14: surfaced so the view can show "Some scanners were partially
     /// supported" without fabricating a fully-successful scan — the exact same

@@ -1,0 +1,143 @@
+<UserControl x:Class="ServerSleuth.Gui.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- GUI-7A: a lightweight, read-only SUMMARY of the latest already-completed scan — every
+         binding below reads a property DashboardOverviewViewModel already computed from
+         ScanExecutionState/ScanPipelineResult. Nothing here can start a scan, rebuild a report,
+         or touch the pipeline (the buttons below only raise events MainViewModel handles by
+         navigating/reusing the existing Results dashboard). No chart library, no gauges, no new
+         0-100 score — plain text/stat cards only, matching the rest of the shell's existing
+         theme resources. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="1000" HorizontalAlignment="Left">
+            <TextBlock Text="ServerSleuth" Style="{StaticResource Text.PageTitle}" />
+            <TextBlock Text="{DynamicResource Overview.Subtitle}" Style="{StaticResource Text.Muted}" Margin="0,0,0,16" />
+
+            <!-- EMPTY STATE — no completed scan yet. Never a fabricated/zeroed-out summary. -->
+            <StackPanel Visibility="{Binding HasNoResults, Converter={StaticResource BoolToVisibility}}">
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.NoResultsTitle}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Overview.NoResultsBody}" Style="{StaticResource Text.Body}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                        <Button Content="{DynamicResource ScanConfig.StartScan}" Command="{Binding StartScanCommand}"
+                                Style="{StaticResource App.Button}" HorizontalAlignment="Left" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- POPULATED STATE — a completed (or partial/cancelled/failed) scan already exists. -->
+            <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}">
+
+                <!-- LAST SCAN — plain TextBlock.Text bindings only, never a Run: a Run-hosted
+                     binding to a read-only property on a ViewModel instance that gets REBUILT
+                     FRESH on every navigation/language switch (this page's own contract — it has
+                     no filter/selection state to preserve) can throw the same
+                     "TwoWay/OneWayToSource on a read-only property" InvalidOperationException the
+                     Results dashboard's Migration Summary panel hit (see that view's own comment)
+                     — observed here via RealWindowNavigationSmokeTests, which is exactly the
+                     repeated rebuild-on-navigate scenario this page has and Results/Inventory
+                     (both cached, never rebuilt merely on navigate) do not. Plain TextBlock.Text
+                     with default (unset) Mode is the proven-safe pattern already used by the
+                     Discovery/Risk/Migration cards below. -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.LastScan}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                                <TextBlock Text="{DynamicResource Dashboard.TargetLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding TargetDisplayName}" Style="{StaticResource Text.Body}" />
+                                <TextBlock Text=" (" Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding TargetPlatform}" Style="{StaticResource Text.Body}" />
+                                <TextBlock Text=")" Style="{StaticResource Text.Body}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,24,4">
+                                <TextBlock Text="{DynamicResource Dashboard.StatusLabel}" FontWeight="SemiBold" Style="{StaticResource Text.Body}" />
+                                <TextBlock Text="{Binding Status}" Style="{StaticResource Text.Body}" />
+                            </StackPanel>
+                        </WrapPanel>
+                        <TextBlock Text="{DynamicResource Overview.PartialNotice}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap"
+                                   Visibility="{Binding IsPartial, Converter={StaticResource BoolToVisibility}}" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Border>
+
+                <!-- DISCOVERY -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.Discovery}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.EntitiesLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding EntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.ApplicationsLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.DependenciesLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding DependencyCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- RISK -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.Risk}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.CriticalLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding CriticalCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" Foreground="{StaticResource Risk.Critical}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.HighLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding HighCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" Foreground="{StaticResource Risk.High}" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.MediumLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding MediumCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" Foreground="{StaticResource Risk.Medium}" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- MIGRATION -->
+                <Border Style="{StaticResource Dashboard.Card}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Overview.Migration}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.BlockedLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding BlockedApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.NeedsRemediationLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding NeedsRemediationApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.ReadyWithConditionsLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ReadyWithConditionsApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,32,0">
+                                <TextBlock Text="{DynamicResource Overview.ReadyLabel}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ReadyApplicationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- ACTIONS -->
+                <StackPanel Orientation="Horizontal" Margin="0,4,0,16">
+                    <Button Content="{DynamicResource ScanExec.ViewResults}" Command="{Binding ViewResultsCommand}"
+                            Style="{StaticResource App.Button}" Margin="0,0,8,0" />
+                    <Button Content="{DynamicResource Nav.Inventory.Label}" Command="{Binding ViewInventoryCommand}"
+                            Style="{StaticResource App.Button}" Margin="0,0,8,0" />
+                    <Button Content="{DynamicResource Dashboard.NewScan}" Command="{Binding StartScanCommand}"
+                            Style="{StaticResource App.Button}" />
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -38,7 +38,17 @@ public class NoScanExecutionFromGuiTests
         // GUI-6A: the Discovery Inventory types must remain pure projections over an
         // already-completed ScanPipelineResult too — never a place a new
         // DiscoveryEngine/ApplicationBoundaryEngine/DependencyExpansionEngine call could sneak in.
-        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel)
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel),
+        // GUI-7A: the Dashboard overview reads the same already-completed ScanExecutionState —
+        // same sweep.
+        typeof(DashboardOverviewViewModel),
+        // GUI-7B: Migration/Reports must remain pure projections over an already-completed
+        // ScanExecutionState/report too; Settings only ever proxies ScanConfigurationViewModel's
+        // own already-checked properties — none of the three may add an orchestration/engine/
+        // exporter dependency of their own (ReportsOverviewViewModel's export/viewer commands
+        // only ever call the existing IGuiReportExportService/IGuiReportViewerService — the
+        // "ReportArtifactFactory" pattern above already covers a second exporter attempt).
+        typeof(MigrationOverviewViewModel), typeof(ReportsOverviewViewModel), typeof(SettingsViewModel)
     ];
 
     public static IEnumerable<object[]> ViewModelTypes() => CheckedViewModelTypes.Select(t => new object[] { t });

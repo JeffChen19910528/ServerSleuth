@@ -28,6 +28,8 @@ public static class LocalizedStrings
         ["Nav.Dashboard.Description"] = ("An overview of the current target and its most recent scan will appear here.", "目前掃描目標及其最近一次掃描的概觀將顯示於此。"),
         ["Nav.Scan.Label"] = ("Scan", "掃描"),
         ["Nav.Scan.Description"] = ("Scan configuration and target selection will appear here.", "掃描設定與目標選擇將顯示於此。"),
+        ["Nav.Inventory.Label"] = ("Inventory", "盤點"),
+        ["Nav.Inventory.Description"] = ("Discovered services, applications, and other assets on this server will appear here.", "此伺服器上探勘到的服務、應用程式及其他資產將顯示於此。"),
         ["Nav.Results.Label"] = ("Results", "結果"),
         ["Nav.Results.Description"] = ("Discovered entities and their relationships will appear here.", "探勘到的實體及其關聯將顯示於此。"),
         ["Nav.Migration.Label"] = ("Migration", "遷移"),
@@ -171,6 +173,49 @@ public static class LocalizedStrings
         ["Dashboard.Format"] = ("Format", "格式"),
         ["Dashboard.IfFileExists"] = ("If a file already exists", "若檔案已存在"),
         ["Dashboard.OutputDirectory"] = ("Output directory", "輸出目錄"),
+
+        // GUI-7B: Migration page (distinct from Results' own "Dashboard.MigrationSummary" etc.)
+        ["Migration.Title"] = ("Migration Assessment", "遷移評估"),
+        ["Migration.NoResultsTitle"] = ("No migration assessment is available yet.", "尚無可用的遷移評估。"),
+        ["Migration.NoResultsBody"] = ("Run a scan to determine application migration status.", "執行掃描以判斷應用程式的遷移狀態。"),
+        ["Migration.Applications"] = ("Applications", "應用程式"),
+
+        // GUI-7B: Reports page (distinct from Results' own "Dashboard.Reports" expander)
+        ["Reports.Title"] = ("Reports", "報表"),
+        ["Reports.NoResultsTitle"] = ("No report has been generated yet.", "尚未產生任何報表。"),
+        ["Reports.NoResultsBody"] = ("Run a scan to generate JSON and HTML reports.", "執行掃描以產生 JSON 與 HTML 報表。"),
+        ["Reports.Available"] = ("Available Reports", "可用的報表"),
+
+        // GUI-7B: Settings page
+        ["Settings.Title"] = ("Settings", "設定"),
+        ["Settings.General"] = ("General", "一般"),
+        ["Settings.DefaultOutputDirectory"] = ("Default Output Directory", "預設輸出目錄"),
+        ["Settings.DefaultReportFormat"] = ("Default Report Format", "預設報表格式"),
+        ["Settings.DefaultOverwritePolicy"] = ("Default Overwrite Policy", "預設覆蓋原則"),
+        ["Settings.VerboseOutput"] = ("Verbose Output", "詳細輸出"),
+        ["Settings.Language"] = ("Language", "語言"),
+
+        // GUI-7A: Dashboard overview (MainViewModel's NavigationPage.Dashboard — a distinct
+        // lightweight summary page, not to be confused with the "Dashboard.*"-prefixed keys
+        // above, which belong to the Results dashboard and predate this page).
+        ["Overview.Subtitle"] = ("Server Discovery & Migration Assessment", "伺服器探勘與遷移評估"),
+        ["Overview.NoResultsTitle"] = ("No scan results yet.", "尚無掃描結果。"),
+        ["Overview.NoResultsBody"] = ("Scan this server to discover services, applications, dependencies, risks, and migration information.", "掃描此伺服器以探勘服務、應用程式、依賴項目、風險與遷移資訊。"),
+        ["Overview.LastScan"] = ("Last Scan", "最近一次掃描"),
+        ["Overview.PartialNotice"] = ("This scan is partial — some scanners were not fully supported.", "此次掃描為部分結果 — 部分掃描器未完全受支援。"),
+        ["Overview.Discovery"] = ("Discovery", "探勘"),
+        ["Overview.EntitiesLabel"] = ("Entities", "實體數"),
+        ["Overview.ApplicationsLabel"] = ("Applications", "應用程式數"),
+        ["Overview.DependenciesLabel"] = ("Dependencies", "依賴數"),
+        ["Overview.Risk"] = ("Risk", "風險"),
+        ["Overview.CriticalLabel"] = ("Critical", "嚴重"),
+        ["Overview.HighLabel"] = ("High", "高"),
+        ["Overview.MediumLabel"] = ("Medium", "中"),
+        ["Overview.Migration"] = ("Migration", "遷移"),
+        ["Overview.BlockedLabel"] = ("Blocked", "已阻擋"),
+        ["Overview.NeedsRemediationLabel"] = ("Needs Remediation", "需要修復"),
+        ["Overview.ReadyWithConditionsLabel"] = ("Ready With Conditions", "有條件就緒"),
+        ["Overview.ReadyLabel"] = ("Ready", "已就緒"),
 
         // Application Detail
         ["AppDetail.Risk"] = ("Risk", "風險"),

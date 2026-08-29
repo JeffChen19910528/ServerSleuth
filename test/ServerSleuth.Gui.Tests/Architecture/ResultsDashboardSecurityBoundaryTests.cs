@@ -1,4 +1,5 @@
 using System.Reflection;
+using ServerSleuth.Gui.ViewModels;
 using ServerSleuth.Gui.ViewModels.Results;
 
 namespace ServerSleuth.Gui.Tests.Architecture;
@@ -33,7 +34,17 @@ public class ResultsDashboardSecurityBoundaryTests
         typeof(ServerSleuth.Gui.Models.GuiReportExportResult), typeof(ServerSleuth.Gui.Models.GuiReportViewResult),
         // GUI-6A §18: same explicit-entry treatment for the new Discovery Inventory types — also
         // already reachable (and covered) via ResultsDashboardViewModel.Inventory below.
-        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel)
+        typeof(InventoryExplorerViewModel), typeof(InventoryItemViewModel), typeof(InventoryDetailViewModel), typeof(InventoryCategoryViewModel),
+        // GUI-7A: the Dashboard overview reads the same already-completed ScanExecutionState/
+        // ServerMigrationAssessmentReport — both are already covered by the exhaustive walk below
+        // (ResultsDashboardViewModel also has State/Report properties of those same types), but
+        // an explicit entry here makes the guarantee obvious per-type too.
+        typeof(DashboardOverviewViewModel),
+        // GUI-7B: Migration/Reports read the same already-completed ScanExecutionState/report;
+        // Settings only ever proxies ScanConfigurationViewModel's own already-checked scalar
+        // properties (never the ScanConfigurationViewModel instance itself as a property) plus
+        // GuiLanguage.
+        typeof(MigrationOverviewViewModel), typeof(ReportsOverviewViewModel), typeof(SettingsViewModel)
     ];
 
     public static IEnumerable<object[]> CheckedTypesData() => CheckedTypes.Select(t => new object[] { t });

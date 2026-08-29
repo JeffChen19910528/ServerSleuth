@@ -10,6 +10,16 @@ not assumed from Phase 11C's own report.
 The GUI is now feature-complete for v1.0.0: Dashboard, Scan, Inventory, Results, Migration,
 Reports, and Settings are all real, functional pages — none is a placeholder.
 
+Further updated by the subsequent **Release Build Pipeline Audit** task — a packaging-only
+verification pass (no source/GUI/CLI code changed) confirming `build-release.ps1`/
+`build-release.sh` still correctly publish this exact source tree after GUI-7A/7B/7C. Zero
+script defects were found; zero lines of either script were changed. The checksums/evidence
+below are from that audit's own fresh, independent rebuild (superseding the GUI-7C session's
+figures, which were from a build made one docs-only commit earlier — functionally identical
+binaries, this is simply the freshest re-verification; single-file publishes embed a
+per-build bundle identifier, so byte-identical source still produces different checksums
+across separate `dotnet publish` runs — expected, not a defect).
+
 ```
 Build:
 PASS
@@ -25,8 +35,8 @@ Windows CLI:
 PASS
 
 Linux CLI:
-PASS (byte-for-byte unchanged this phase; re-verified via checksum match against the
-Phase 11C artifact's own build, not re-run — see "Linux CLI" below)
+PASS (re-run directly in an isolated WSL2 instance with dotnet confirmed absent —
+see "Linux CLI" below)
 
 Single-file:
 PASS
@@ -126,21 +136,23 @@ there only (never the repository's own `bin/`/`obj/`).
   contract as every prior phase (`ServerSleuth.Cli.Output.VersionInfo.Version` reads the .NET
   assembly version directly — not a separately-maintained string); not treated as a defect.
 - `--help` — correct usage text.
-- Real local scan (`scan --output <isolated dir> --overwrite`): 34,860 entities, 12 scanners (4
+- `scan --help` — documents all options correctly.
+- Real local scan (`scan --output <isolated dir> --overwrite`): 34,881 entities, 12 scanners (4
   `PartiallySupported`/`AccessDenied` — the same legitimate dev-machine scanner-permission
-  characteristic Phase 11C already documented, not a defect), Risk (318 Critical/17,346
-  High/253 Medium), Migration (72 Blocked/30 NeedsRemediation), `report.json` (275 MB)/
+  characteristic Phase 11C already documented, not a defect), `report.json` (275 MB)/
   `report.html` (209 MB) both written and non-empty, **exit code 4** — correctly matches the
   documented `PartialDiscovery` exit-code semantics.
 
 ### Linux CLI
-Not re-run interactively this phase (no WSL2/Linux execution step was required to validate the
-GUI-only changes this phase makes) — its own release artifact was rebuilt by the same
-`build-release.ps1` run as the Windows artifacts above, from byte-for-byte unchanged
-`ServerSleuth.Cli`/backend source. Phase 11C already independently verified the Linux binary end
-to end (real scan, self-contained, no `dotnet` present) against the prior release candidate; that
-functional behavior is unaffected by this phase's GUI-only changes. Package integrity and
-checksum verification below cover this phase's freshly-built artifact directly.
+Re-run directly this time (Release Build Pipeline Audit task): the freshly-built
+`release/linux/serversleuth` was copied into an isolated `/tmp` directory inside a real WSL2
+Ubuntu instance, where `dotnet` was first confirmed genuinely absent (`type dotnet` → not
+found). From there: `--help`/`--version` (`1.0.0.0`)/`scan --help` all correct, and a real local
+scan (`scan --output ./out --overwrite`) completed — 1,635 entities, 11 scanners (6 partial,
+consistent with this WSL2 instance's own known characteristics, e.g. no Kubernetes cluster
+present), `report.json`/`report.html` both written, **exit code 4** (`PartialDiscovery`,
+correct). This directly confirms genuine self-containment, not merely that the publish command
+included `--self-contained true`.
 
 ### Self-contained verification
 The Windows GUI and CLI both ran correctly from an isolated, package-only directory with no
@@ -161,11 +173,11 @@ archives) with `sha256sum` — a different tool than the release script's own `G
 every one matches `release/SHA256SUMS.txt` exactly.
 
 ```
-78e0fac74bb83fa7680911fd01b9006d0a80933c4dc2e5adb0428e7cc8a2cf84  windows/ServerSleuth.exe
-e8c7b52de232ae66f79a107b05ad165525b3d160ec5b6a6d448672c02bcc15c3  windows/serversleuth-cli.exe
-6d21398716a70375ba80b7ad74a420e76b958e8d24b51159b364f62afb632ea3  linux/serversleuth
-b11f4c3305ad4b8edd663173252dc0ff6ece304b3c268745fe7851161fbb6b9d  ServerSleuth-v1.0.0-windows-x64.zip
-f6e54a06ada20b6c387930a15436a3d6c41b8c1b0a536175480e291c0de35b2e  ServerSleuth-v1.0.0-linux-x64.tar.gz
+b62c1811f7918b07ffa02811342f64477a515a6ea760113f4b4e1951f5b7f835  windows/ServerSleuth.exe
+32436017a7dc79b96d5e897b0cf8de4e2127254540c6aa612244fc7b995ba2cd  windows/serversleuth-cli.exe
+f1e53c3561f7fd8016c87c3709ecd69bb21e1bebcdf884c03a36bdaa99561635  linux/serversleuth
+4a9fc33c7319615ef64ef1071d76db54fd20106b387c63ef7877161f2d5cfc0e  ServerSleuth-v1.0.0-windows-x64.zip
+ed942dd2f9850320cf567ea8797bb1901f292f3e4e9982baf9af3e0ffa799613  ServerSleuth-v1.0.0-linux-x64.tar.gz
 ```
 
 ### Security

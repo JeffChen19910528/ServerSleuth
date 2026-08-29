@@ -977,3 +977,13 @@
 - `build-release.ps1` run end-to-end: Windows GUI/CLI, Linux CLI, both archives, checksums, package audit all produced fresh and independently re-verified (checksums recomputed with a different tool, package contents re-listed by hand, both executables/archives scanned for secret-shaped patterns — zero matches). A real local scan with the freshly-built Windows CLI completed successfully (34,860 entities, exit code 4 = `PartialDiscovery`, the existing documented semantics).
 - Interactive/visual GUI validation was **not performed** — no interactive desktop session available in this environment, same disclosed constraint as every prior GUI phase.
 - **This is the final GUI phase.** GUI-8 and later were not started. Final Release Status: **RELEASE READY** (see `docs/releases/FINAL_RELEASE_SIGNOFF.md`).
+
+## Unreleased (Release Build Pipeline Audit — post-GUI-7C)
+
+### Notes
+- Audited `build-release.ps1`/`build-release.sh` against the current, post-GUI-7C source tree. **Zero lines changed in either script** — both already correctly publish the current project shape (GUI single-TFM `net8.0-windows`/`WinExe`; CLI multi-targeted `net8.0-windows;net8.0` with the scripts' own `-f` disambiguation; version read from `Directory.Build.props`, never hard-coded). No genuine packaging defect was found.
+- Full regression re-run fresh: every non-GUI project 100%; `ServerSleuth.Gui.Tests` 369/370, the one failure the same documented environmental `WaitUntilAsync` cold-start flakiness (isolated and re-confirmed: fails cold, passes instantly on immediate rerun) — not touched.
+- `build-release.ps1` run end-to-end from clean: Windows GUI/CLI, Linux CLI, both archives, `VERSION`, `SHA256SUMS.txt` — all 5 checksums independently recomputed and matched; both archives' contents independently re-listed and clean (no dev artifacts); zero secret-shaped matches across all three executables and both archives.
+- Isolated verification (temp dir, artifact only, no source/bin/obj/NuGet cache): Windows CLI `--help`/`--version`/`scan --help` and a real local scan (34,881 entities, exit code 4) all correct; Windows GUI launched/alive/terminated cleanly with no orphan (non-visual liveness only). Linux CLI verified inside WSL2 Ubuntu with `dotnet` confirmed absent from that instance — `--help`/`--version`/`scan --help` and a real local scan (1,635 entities, exit code 4) all correct, confirming genuine self-containment.
+- No new NuGet packages. No production code or build script was modified — this task is a pure verification pass.
+- **Final Release Build Status: RELEASE BUILD VERIFIED.**

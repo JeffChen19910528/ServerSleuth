@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ServerSleuth.Gui\ServerSleuth.Gui.csproj" />
+    <ProjectReference Include="..\ServerSleuth.Gui.TestFixtures\ServerSleuth.Gui.TestFixtures.csproj" />
 
     <!-- Build-order dependency only (see RealWindowRuntimeConfigTests's own doc comment) — that
          test runs ServerSleuth.Gui.RealWindowHarness.exe as a child process rather than calling

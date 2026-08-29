@@ -4,18 +4,24 @@ using System.IO;
 namespace ServerSleuth.Gui.Tests.Views;
 
 /// <summary>Guards a real, previously-shipped defect that an in-process xUnit test structurally
-/// cannot detect: with <c>InvariantGlobalization</c> enabled (see <c>ServerSleuth.Gui.csproj</c>),
-/// WPF's binding engine threw <c>InvalidOperationException: Cannot find non-neutral culture
-/// related to 'en-us'</c> the first time any bound control on any real page attached to the
-/// visual tree — surfaced to an actual user only as the generic "unexpected error" footer message,
-/// after Dashboard -> switch to Traditional Chinese -> Scan. Fixed in <c>App</c>'s static
-/// constructor (see its own doc comment). The VSTest host process this class runs in does NOT
-/// itself set <c>InvariantGlobalization</c>, so <see cref="RealWindowNavigationSmokeTests"/> alone
-/// cannot reproduce the failure regardless of whether the fix is present — this test instead runs
-/// <c>ServerSleuth.Gui.RealWindowHarness</c> (a standalone executable that DOES set
-/// <c>InvariantGlobalization=true</c>, mirroring the real shipped <c>ServerSleuth.Gui.exe</c>
-/// exactly) as a real child process and asserts on its exit code, so the actual runtime
-/// configuration that caused the original defect is genuinely exercised.</summary>
+/// cannot detect: WPF's binding engine can throw <c>InvalidOperationException: Cannot find
+/// non-neutral culture related to 'en-us'</c> (from <c>BindingExpression.GetCulture()</c> →
+/// <c>XmlLanguage.GetSpecificCulture()</c>) the first time a numeric binding on a real page
+/// attaches to a live visual tree — surfaced to an actual user only as the generic "unexpected
+/// error" footer message. This was originally caused by an <c>App</c> static constructor that
+/// pinned every <c>FrameworkElement.LanguageProperty</c> to
+/// <c>CultureInfo.InvariantCulture</c>'s (empty) IETF tag as a workaround for a NOW-REMOVED
+/// <c>InvariantGlobalization=true</c> (see the git history around commit 6929da3, which dropped
+/// <c>InvariantGlobalization</c> for an unrelated input-language freeze but left this override in
+/// place) — that override itself turned out to be unsafe even without
+/// <c>InvariantGlobalization</c> and was deleted outright, restoring WPF's own default
+/// <c>FrameworkElement.Language</c> resolution. The VSTest host process this class runs in never
+/// constructs a real <see cref="System.Windows.Application"/>, so
+/// <see cref="RealWindowNavigationSmokeTests"/> alone cannot reproduce a layout-attach-time
+/// binding failure regardless of whether the fix is present — this test instead runs
+/// <c>ServerSleuth.Gui.RealWindowHarness</c> (a standalone executable, real
+/// <see cref="System.Windows.Application"/>/<c>MainWindow</c>/layout pass included) as a real
+/// child process and asserts on its exit code.</summary>
 public class RealWindowRuntimeConfigTests
 {
     private static string HarnessExecutablePath()

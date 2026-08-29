@@ -1,6 +1,4 @@
-using System.Globalization;
 using System.Windows;
-using System.Windows.Markup;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using ServerSleuth.Gui.Composition;
@@ -31,19 +29,6 @@ namespace ServerSleuth.Gui.App;
 public partial class App : Application
 {
     private IServiceProvider? _services;
-
-    /// <summary>WPF's data-binding
-    /// engine would otherwise use the system locale for internal formatting. Pinning every
-    /// <see cref="FrameworkElement"/>'s <see cref="FrameworkElement.LanguageProperty"/> to the
-    /// invariant culture before any <see cref="FrameworkElement"/> (including
-    /// <see cref="MainWindow"/>) is constructed keeps date/number rendering consistent regardless
-    /// of the user's system language — hence the static constructor.</summary>
-    static App()
-    {
-        FrameworkElement.LanguageProperty.OverrideMetadata(
-            typeof(FrameworkElement),
-            new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(CultureInfo.InvariantCulture.IetfLanguageTag)));
-    }
 
     protected override void OnStartup(StartupEventArgs e)
     {

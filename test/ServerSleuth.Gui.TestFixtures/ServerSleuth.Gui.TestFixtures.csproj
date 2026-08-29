@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A plain class library (not a test project) holding ScanResultFixtureFactory — a real,
+       fully-populated ScanExecutionState/ScanPipelineResult builder. Extracted out of
+       ServerSleuth.Gui.Tests so ServerSleuth.Gui.RealWindowHarness (a WinExe that ServerSleuth.
+       Gui.Tests already depends on for build ordering — see that project's own comment) can also
+       reference it, without creating a project-reference cycle between the two. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\ServerSleuth.Gui\ServerSleuth.Gui.csproj" />
+  </ItemGroup>
+
+</Project>

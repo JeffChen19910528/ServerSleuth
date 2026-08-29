@@ -3,7 +3,7 @@ using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
 using ServerSleuth.Gui.Services;
 using ServerSleuth.Gui.Tests.Fakes;
-using ServerSleuth.Gui.Tests.Fixtures;
+using ServerSleuth.Gui.TestFixtures;
 using ServerSleuth.Gui.ViewModels;
 using ServerSleuth.Gui.ViewModels.Results;
 

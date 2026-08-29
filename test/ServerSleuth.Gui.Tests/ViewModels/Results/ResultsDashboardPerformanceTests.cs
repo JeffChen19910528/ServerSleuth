@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using ServerSleuth.Gui.Tests.Fixtures;
+using ServerSleuth.Gui.TestFixtures;
 using ServerSleuth.Gui.ViewModels.Results;
 
 namespace ServerSleuth.Gui.Tests.ViewModels.Results;

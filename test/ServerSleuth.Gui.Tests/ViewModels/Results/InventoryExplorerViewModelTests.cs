@@ -3,7 +3,7 @@ using ServerSleuth.Core.Enums;
 using ServerSleuth.Core.Evidence;
 using ServerSleuth.Core.Models;
 using ServerSleuth.Gui.Models;
-using ServerSleuth.Gui.Tests.Fixtures;
+using ServerSleuth.Gui.TestFixtures;
 using ServerSleuth.Gui.ViewModels.Results;
 
 namespace ServerSleuth.Gui.Tests.ViewModels.Results;

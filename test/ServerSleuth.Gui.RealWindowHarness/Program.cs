@@ -1,11 +1,17 @@
 using System.Threading;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
+using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.Composition;
+using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
 using ServerSleuth.Gui.Services;
+using ServerSleuth.Gui.TestFixtures;
 using ServerSleuth.Gui.ViewModels;
+using ServerSleuth.Gui.ViewModels.Results;
 using ServerSleuth.Gui.Views;
 using GuiApp = ServerSleuth.Gui.App.App;
 
@@ -41,6 +47,13 @@ static void Run(List<string> failures)
     var app = new GuiApp();
     app.InitializeComponent();
 
+    // Default ShutdownMode is OnLastWindowClose — this harness opens and closes several windows
+    // in sequence on the SAME Application, and letting the app shut down after the first one's
+    // Close() leaves every later Window.Show() running against an already-shutting-down
+    // Application (observed as a spurious "Cannot find non-neutral culture related to 'en-us'"
+    // from BindingExpression.GetCulture(), unrelated to anything under test).
+    app.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
     Exception? dispatcherException = null;
     app.DispatcherUnhandledException += (_, e) =>
     {
@@ -67,6 +80,144 @@ static void Run(List<string> failures)
     catch (Exception ex)
     {
         failures.Add($"[with language switch] Threw directly (not via Dispatcher): {ex}");
+    }
+
+    try
+    {
+        RunResultsDashboardScenario(failures, () => dispatcherException, ex => dispatcherException = ex, switchToTraditionalChinese: false);
+    }
+    catch (Exception ex)
+    {
+        failures.Add($"[results dashboard, without language switch] Threw directly (not via Dispatcher): {ex}");
+    }
+
+    try
+    {
+        RunResultsDashboardScenario(failures, () => dispatcherException, ex => dispatcherException = ex, switchToTraditionalChinese: true);
+    }
+    catch (Exception ex)
+    {
+        failures.Add($"[results dashboard, with language switch] Threw directly (not via Dispatcher): {ex}");
+    }
+
+    app.Shutdown();
+}
+
+// Reproduces the crash reported against the real, shipped GUI: MainViewModel's own
+// NavigationCommand walk (RunScenario above) never has a completed scan, so the Results
+// dashboard it navigates to is always the empty/no-results placeholder — it never reaches the
+// bindings inside the Migration Summary expander that threw InvalidOperationException in
+// production (gui-*.log — see GuiExceptionHandler and ResultsDashboardView.xaml). This scenario
+// drives the SAME real MainWindow/MainViewModel/ScanExecutionViewModel navigation flow
+// MainViewModelResultsNavigationTests (ServerSleuth.Gui.Tests) exercises in-process — a fake
+// IGuiScanExecutor stands in for the real pipeline (never touched here, matching every other
+// scenario in this file) and returns a real, fully-populated ScanExecutionState
+// (ScanResultFixtureFactory) — so the Results dashboard actually shown is byte-for-byte what a
+// completed scan produces in the shipped app, not a synthetic stand-in. Then, since the failure
+// is specifically tied to content that starts inside a collapsed Expander, it expands every
+// Expander on the page (forcing the same layout-triggered binding attach the collapsed content
+// only gets lazily/incidentally in the shipped app) both before and after a language switch,
+// matching how the user actually hit it.
+static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> getDispatcherException, Action<Exception?> resetDispatcherException, bool switchToTraditionalChinese)
+{
+    resetDispatcherException(null);
+
+    var navigation = new NavigationService();
+    var applicationState = new ApplicationStateService();
+    var languageService = new LanguageService();
+    var scanConfiguration = new ScanConfigurationViewModel(new ScanConfigurationValidator(), new ScanRequestFactory());
+    var completedState = ScanResultFixtureFactory.BuildCompletedState();
+    var executor = new HarnessFakeScanExecutor
+    {
+        CompletionToReturn = new ScanCompletionState
+        {
+            Status = completedState.Status,
+            EntityCount = completedState.EntityCount,
+            ErrorCount = completedState.ErrorCount,
+            ScannerStatuses = completedState.ScannerStatuses,
+            OutputPaths = completedState.OutputPaths,
+            PipelineResult = completedState.PipelineResult
+        }
+    };
+    var scanExecution = new ScanExecutionViewModel(executor);
+    var mainViewModel = new MainViewModel(navigation, applicationState, scanConfiguration, scanExecution, languageService: languageService);
+    var window = new MainWindow(mainViewModel);
+
+    window.Show();
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Scan);
+    scanExecution.Start(
+        new ScanRequest
+        {
+            Target = ScanTarget.Local(TargetPlatform.Windows),
+            OutputDirectory = "./out",
+            OutputFormat = ScanOutputFormat.Both,
+            OverwritePolicy = ScanOverwritePolicy.FailIfExists,
+            Verbose = false
+        },
+        ScanCredentialInput.Empty);
+
+    var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+    while (!scanExecution.IsFinished && DateTime.UtcNow < deadline)
+    {
+        PumpDispatcherOnce();
+    }
+
+    scanExecution.ViewResultsCommand.Execute(null);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
+
+    if (switchToTraditionalChinese)
+    {
+        languageService.SetLanguage(GuiLanguage.TraditionalChinese);
+        window.UpdateLayout();
+        PumpDispatcherOnce();
+    }
+
+    foreach (var expander in FindVisualChildren<Expander>(window))
+    {
+        expander.IsExpanded = true;
+        window.UpdateLayout();
+        PumpDispatcherOnce();
+    }
+
+    window.Close();
+
+    var scenario = switchToTraditionalChinese ? "results dashboard, with language switch" : "results dashboard, without language switch";
+
+    if (mainViewModel.CurrentPageViewModel is not ResultsDashboardViewModel)
+    {
+        failures.Add($"[{scenario}] Navigation never reached the Results dashboard (got {mainViewModel.CurrentPageViewModel.GetType().Name}) — scenario did not actually test anything.");
+    }
+
+    if (getDispatcherException() is { } exception)
+    {
+        failures.Add($"[{scenario}] DispatcherUnhandledException: {exception}");
+    }
+
+    if (applicationState.Current.LastErrorMessage is { } message)
+    {
+        failures.Add($"[{scenario}] LastErrorMessage was set: {message}");
+    }
+}
+
+static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject
+{
+    var childCount = VisualTreeHelper.GetChildrenCount(root);
+    for (var i = 0; i < childCount; i++)
+    {
+        var child = VisualTreeHelper.GetChild(root, i);
+        if (child is T typedChild)
+        {
+            yield return typedChild;
+        }
+
+        foreach (var grandchild in FindVisualChildren<T>(child))
+        {
+            yield return grandchild;
+        }
     }
 }
 
@@ -117,4 +268,20 @@ static void PumpDispatcherOnce()
     var frame = new DispatcherFrame();
     Dispatcher.CurrentDispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
     Dispatcher.PushFrame(frame);
+}
+
+// A minimal stand-in for ServerSleuth.Gui.Tests.Fakes.FakeGuiScanExecutor (internal to that
+// project, and referencing it here would need the same project either way) — the real pipeline is
+// never touched; it hands back a caller-supplied ScanCompletionState.
+sealed class HarnessFakeScanExecutor : IGuiScanExecutor
+{
+    public required ScanCompletionState CompletionToReturn { get; init; }
+
+    public Task<ScanCompletionState> ExecuteAsync(
+        ScanRequest request, ScanCredentialInput credentials, IProgress<ScanProgressState> progress, CancellationToken cancellationToken)
+    {
+        progress.Report(new ScanProgressState { Stage = ScanStage.Preparing });
+        progress.Report(new ScanProgressState { Stage = ScanStage.Discovery, EntityCount = CompletionToReturn.EntityCount });
+        return Task.FromResult(CompletionToReturn);
+    }
 }

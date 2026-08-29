@@ -2,25 +2,34 @@
 
   <!-- Not a unit test project — a small, standalone WPF executable used ONLY as an out-of-process
        harness by RealWindowRuntimeConfigTests (in ServerSleuth.Gui.Tests), which runs it as a
-       child process and asserts on its exit code/output. It exists because the specific defect it
-       guards against (see App.xaml.cs's static constructor doc comment: WPF's binding engine
-       breaking under InvariantGlobalization the moment a real bound control attaches to layout)
-       is invisible to an in-process xUnit test — the VSTest host process does not itself set
-       InvariantGlobalization, so CultureInfo works there regardless of whether the real fix is
-       present. This project deliberately mirrors ServerSleuth.Gui's own InvariantGlobalization
-       setting so the child process actually reproduces the real runtime configuration. -->
+       child process and asserts on its exit code/output. A real Application/MainWindow/layout
+       pass catches defects an in-process xUnit test cannot: the VSTest host process never
+       constructs a real WPF Application, so a binding-engine failure that only manifests once a
+       control actually attaches to a live visual tree (e.g. the InvariantGlobalization-era
+       "Cannot find non-neutral culture related to 'en-us'" crash this test guards against —
+       see App.xaml.cs's git history around commit 6929da3) is invisible there regardless of
+       whether the real fix is present. Deliberately does NOT set InvariantGlobalization — mirror
+       ServerSleuth.Gui's OWN setting (currently unset; see that project's own history) rather than
+       hardcoding a value here that can silently drift out of sync with it. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <InvariantGlobalization>true</InvariantGlobalization>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ServerSleuth.Gui\ServerSleuth.Gui.csproj" />
+    <!-- Reuses ScanResultFixtureFactory (a real, fully-populated ScanExecutionState) so the
+         "with results" scenario below exercises actual bound data — the empty/no-results state
+         every other scenario in this file exercises does not reach the bindings that crashed on
+         the Results dashboard's Migration Summary panel. A direct reference to
+         ServerSleuth.Gui.Tests would cycle (that project already depends on this one for build
+         ordering — see its own comment), hence the standalone ServerSleuth.Gui.TestFixtures
+         project instead. -->
+    <ProjectReference Include="..\ServerSleuth.Gui.TestFixtures\ServerSleuth.Gui.TestFixtures.csproj" />
   </ItemGroup>
 
 </Project>

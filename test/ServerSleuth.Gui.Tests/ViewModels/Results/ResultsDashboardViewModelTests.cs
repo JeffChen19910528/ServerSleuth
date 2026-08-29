@@ -2,7 +2,7 @@ using ServerSleuth.Analysis.Migration.Models;
 using ServerSleuth.Analysis.Risk.Models;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
-using ServerSleuth.Gui.Tests.Fixtures;
+using ServerSleuth.Gui.TestFixtures;
 using ServerSleuth.Gui.ViewModels.Results;
 
 namespace ServerSleuth.Gui.Tests.ViewModels.Results;

@@ -16,7 +16,7 @@ using ServerSleuth.Core.Results;
 using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.Models;
 
-namespace ServerSleuth.Gui.Tests.Fixtures;
+namespace ServerSleuth.Gui.TestFixtures;
 
 /// <summary>
 /// GUI-4: a hand-built, fully valid <see cref="ScanPipelineResult"/>/<see cref="ScanExecutionState"/>
@@ -26,7 +26,7 @@ namespace ServerSleuth.Gui.Tests.Fixtures;
 /// itself (it does not decide what escalates a status — it just assigns a fixed, documented
 /// distribution so tests have varied, deterministic, reproducible data).
 /// </summary>
-internal static class ScanResultFixtureFactory
+public static class ScanResultFixtureFactory
 {
     public sealed record Options
     {

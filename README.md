@@ -12,7 +12,7 @@ ServerSleuth 是一套跨平台（Windows Server + Linux Server）的**伺服器
 4. **遷移評估（Migration Assessment）** — 產出每個應用程式/伺服器層級的遷移狀態（Blocked / NeedsRemediation / ReadyWithConditions / Ready）、遷移問題、遷移動作與驗證檢查項目（皆為**宣告式**，工具本身不會執行）。
 5. **報表輸出（Reporting）** — 產出 `report.json`（機器可讀）與 `report.html`（人可讀，內容為純靜態、零 JavaScript）。報表中若偵測到 `Password=`、`ConnectionString=`、`API_KEY=`、`TOKEN=`、`SECRET=`、`PRIVATE_KEY=` 等機密樣式，一律以 `[REDACTED]` / `SecretDetected: true`呈現，絕不外洩明文。
 
-專案採分層架構，探勘（Discovery）、關聯分析（Correlation/Analysis）、報表（Reporting）彼此分離，每個掃描器都實作統一的 `IDiscoveryScanner` 介面並登記於掃描器註冊表；單一掃描器失敗不會中止整個掃描（Fault isolation），最終會列出成功/部分成功/失敗/略過的掃描摘要。詳細的模組劃分與設計決策請見 [`ARCHITECTURE.md`](ARCHITECTURE.md)；各掃描器的用途/資料來源/所需權限/已知限制請見 [`SCANNERS.md`](SCANNERS.md)。
+專案採分層架構，探勘（Discovery）、關聯分析（Correlation/Analysis）、報表（Reporting）彼此分離，每個掃描器都實作統一的 `IDiscoveryScanner` 介面並登記於掃描器註冊表；單一掃描器失敗不會中止整個掃描（Fault isolation），最終會列出成功/部分成功/失敗/略過的掃描摘要。詳細的模組劃分與設計決策請見 [`ARCHITECTURE.md`](docs/ARCHITECTURE.md)；各掃描器的用途/資料來源/所需權限/已知限制請見 [`SCANNERS.md`](docs/SCANNERS.md)。
 
 ## 專案結構
 
@@ -29,6 +29,8 @@ src/
 ├── ServerSleuth.Gui.Contracts/      # GUI 與執行主機共用的 DTO/介面
 └── ServerSleuth.Gui.ExecutionHost/  # GUI 專用的執行/匯出組合層（唯一可碰觸 Windows/Linux/Infrastructure/Reporting 的 GUI 相關組件）
 test/                                # 對應每個 src 專案的測試專案
+docs/                                # 架構、掃描器、安全性、遷移說明文件（見下方「延伸文件」）
+└── releases/                        # 版本上線前的驗收/健檢紀錄（一次性報告）
 ```
 
 ## 需求環境
@@ -257,7 +259,7 @@ release/
 
 ## 目前完成進度
 
-專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）以及 GUI-1 至 GUI-6（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、最終上線前的健檢與強化）。詳細的版本異動請見 [`CHANGELOG.md`](CHANGELOG.md)。
+專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）以及 GUI-1 至 GUI-6（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、最終上線前的健檢與強化）。詳細的版本異動請見 [`CHANGELOG.md`](docs/CHANGELOG.md)。
 
 > GUI 的互動式視覺驗證（實際點擊操作、畫面截圖）目前尚未在任何開發環境中執行過（本專案的開發流程沒有可用的 Windows 桌面自動化/截圖能力），此限制已在文件中如實記載，未來如需要正式驗收，仍建議由使用者在真實桌面環境中親自操作一次完整流程。
 
@@ -271,8 +273,9 @@ release/
 
 ## 延伸文件
 
-- [`ARCHITECTURE.md`](ARCHITECTURE.md) — 實際落地的架構與各階段設計決策記錄
-- [`SCANNERS.md`](SCANNERS.md) — 每個掃描器的用途、資料來源、所需權限與限制
-- [`CHANGELOG.md`](CHANGELOG.md) — 版本異動紀錄
-- [`SECURITY.md`](SECURITY.md) — 安全設計原則與弱點通報方式
-- [`MIGRATION.md`](MIGRATION.md) — 如何解讀 Migration Assessment 輸出、規劃實際遷移
+- [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 實際落地的架構與各階段設計決策記錄
+- [`SCANNERS.md`](docs/SCANNERS.md) — 每個掃描器的用途、資料來源、所需權限與限制
+- [`CHANGELOG.md`](docs/CHANGELOG.md) — 版本異動紀錄
+- [`SECURITY.md`](docs/SECURITY.md) — 安全設計原則與弱點通報方式
+- [`MIGRATION.md`](docs/MIGRATION.md) — 如何解讀 Migration Assessment 輸出、規劃實際遷移
+- [`docs/releases/`](docs/releases/) — 各版本上線前的驗收/健檢一次性報告（例如 `FINAL_RELEASE_SIGNOFF.md`、`FINAL_USER_ACCEPTANCE_CHECKLIST.md`）

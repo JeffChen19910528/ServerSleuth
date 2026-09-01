@@ -1,9 +1,13 @@
+using System.Globalization;
 using ServerSleuth.Analysis.Correlation.Validation;
 using ServerSleuth.Analysis.Migration.Actions;
 using ServerSleuth.Analysis.Migration.Consolidation;
 using ServerSleuth.Analysis.Migration.Models;
 using ServerSleuth.Analysis.Migration.Verification;
+using ServerSleuth.Core.Boundaries;
 using ServerSleuth.Core.Evidence;
+using ServerSleuth.Core.Models;
+using ServerSleuth.Core.Orchestration;
 
 namespace ServerSleuth.Reporting.Json.Dto;
 
@@ -32,6 +36,138 @@ internal static class ReportDtoMapper
         GraphValidationErrors = report.GraphValidationErrors.Select(ToDto).ToList(),
         Diagnostics = ToDto(report.Diagnostics)
     };
+
+    /// <summary>
+    /// GUI-8C overload — maps inventory entities from <paramref name="discovery"/> and
+    /// <paramref name="externalDeps"/> into the new inventory list fields on
+    /// <see cref="ServerReportDto"/>. The <paramref name="boundaries"/> list is used to build
+    /// an entity-id → application-name lookup for attribution; entities not claimed by any
+    /// boundary render with <c>ApplicationName = null</c>. Sorting is Name (OrdinalIgnoreCase)
+    /// then Id (Ordinal) — identical to <c>ApplicationComponentsViewModel</c>'s own ordering
+    /// so the two views of the same data are always consistent.
+    /// </summary>
+    internal static ServerReportDto ToDto(
+        ServerMigrationAssessmentReport report,
+        AggregateDiscoveryResult discovery,
+        IReadOnlyList<ApplicationBoundary> boundaries,
+        IReadOnlyList<ExternalDependency> externalDeps)
+    {
+        var base64Dto = ToDto(report);
+
+        // Build entity-id → first application name lookup from boundary membership.
+        // Iterating the list (not a dictionary) for determinism; the inner scan is O(N·M)
+        // but discovery sets are small enough that this is never a bottleneck.
+        var appNameByEntityId = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var boundary in boundaries)
+        {
+            foreach (var memberId in boundary.MemberEntityIds)
+            {
+                if (!appNameByEntityId.ContainsKey(memberId))
+                {
+                    appNameByEntityId[memberId] = boundary.Name;
+                }
+            }
+        }
+
+        string? AppName(string entityId) =>
+            appNameByEntityId.TryGetValue(entityId, out var name) ? name : null;
+
+        InventoryEntityDto BaseDto(DiscoveryEntity e, string entityType) => new()
+        {
+            Id = e.Id,
+            Name = e.Name,
+            EntityType = entityType,
+            Version = e.Version,
+            Architecture = e.Architecture == Core.Enums.EntityArchitecture.Unknown ? null : e.Architecture.ToString(),
+            Path = e.Path,
+            Status = e.Status == Core.Enums.EntityStatus.Unknown ? null : e.Status.ToString(),
+            Publisher = e.Publisher,
+            ApplicationName = AppName(e.Id)
+        };
+
+        var entities = discovery.Entities;
+
+        return base64Dto with
+        {
+            DllBinaries = entities.OfType<Dll>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Dll")).ToList(),
+
+            Runtimes = entities.OfType<Runtime>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Runtime")).ToList(),
+
+            Services = entities.OfType<Service>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Service") with
+                {
+                    DisplayName = e.DisplayName,
+                    StartType = e.StartType,
+                    ServiceAccount = e.ServiceAccount,
+                    ExecutablePath = e.ExecutablePath
+                }).ToList(),
+
+            ComComponents = entities.OfType<ComComponent>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "ComComponent") with
+                {
+                    Clsid = e.Clsid,
+                    ProgId = e.ProgId,
+                    InprocServer32 = e.InprocServer32,
+                    ThreadingModel = e.ThreadingModel
+                }).ToList(),
+
+            Software = entities.OfType<Software>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Software") with
+                {
+                    InstallLocation = e.InstallLocation,
+                    InstallDate = e.InstallDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                }).ToList(),
+
+            ScheduledTasks = entities.OfType<ScheduledTask>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "ScheduledTask") with
+                {
+                    Folder = e.Folder,
+                    Trigger = e.Trigger,
+                    TaskAction = e.Action,
+                    RunAsAccount = e.RunAsAccount,
+                    Enabled = e.Enabled.ToString()
+                }).ToList(),
+
+            Certificates = entities.OfType<Certificate>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Certificate") with
+                {
+                    Subject = e.Subject,
+                    Issuer = e.Issuer,
+                    Thumbprint = e.Thumbprint,
+                    ValidFrom = e.ValidFrom?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    ValidTo = e.ValidTo?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+                }).ToList(),
+
+            Configurations = entities.OfType<Configuration>()
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => BaseDto(e, "Configuration") with
+                {
+                    Format = e.Format
+                }).ToList(),
+
+            ExternalConnections = externalDeps
+                .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
+                .Select(e => new InventoryEntityDto
+                {
+                    Id = e.Id,
+                    Name = e.Name,
+                    EntityType = "ExternalDependency",
+                    Status = e.Status == Core.Enums.EntityStatus.Unknown ? null : e.Status.ToString(),
+                    ApplicationName = AppName(e.Id),
+                    Kind = e.Kind,
+                    Endpoint = e.Endpoint
+                }).ToList()
+        };
+    }
 
     private static ServerSummaryDto ToDto(ServerMigrationSummary s) => new()
     {

@@ -49,6 +49,25 @@ public sealed class MigrationOverviewViewModel : ObservableObject, IPageViewMode
 
     public bool HasNoResults => !HasResults;
 
+    // ----- GUI-8C: MIGRATION CHECKLIST — aggregate inventory counts across all applications -----
+
+    public int TotalDllBinaryCount          => Applications.Sum(a => a.Detail?.Components?.DllBinaryCount          ?? 0);
+    public int TotalRuntimeCount            => Applications.Sum(a => a.Detail?.Components?.RuntimeCount            ?? 0);
+    public int TotalServiceCount            => Applications.Sum(a => a.Detail?.Components?.ServiceCount            ?? 0);
+    public int TotalComComponentCount       => Applications.Sum(a => a.Detail?.Components?.ComComponentCount       ?? 0);
+    public int TotalSoftwareCount           => Applications.Sum(a => a.Detail?.Components?.SoftwareCount           ?? 0);
+    public int TotalScheduledTaskCount      => Applications.Sum(a => a.Detail?.Components?.ScheduledTaskCount      ?? 0);
+    public int TotalCertificateCount        => Applications.Sum(a => a.Detail?.Components?.CertificateCount        ?? 0);
+    public int TotalConfigurationCount      => Applications.Sum(a => a.Detail?.Components?.ConfigurationCount      ?? 0);
+    public int TotalExternalConnectionCount => Applications.Sum(a => a.Detail?.Components?.ExternalConnectionCount ?? 0);
+
+    public int TotalComponentCount =>
+        TotalDllBinaryCount + TotalRuntimeCount + TotalServiceCount + TotalComComponentCount +
+        TotalSoftwareCount + TotalScheduledTaskCount + TotalCertificateCount +
+        TotalConfigurationCount + TotalExternalConnectionCount;
+
+    public bool HasAnyComponents => TotalComponentCount > 0;
+
     // ----- MIGRATION SUMMARY — copied verbatim from ServerMigrationSummary, never recomputed. -----
     public int BlockedApplicationCount => Report?.ServerSummary.BlockedApplicationCount ?? 0;
     public int NeedsRemediationApplicationCount => Report?.ServerSummary.NeedsRemediationApplicationCount ?? 0;

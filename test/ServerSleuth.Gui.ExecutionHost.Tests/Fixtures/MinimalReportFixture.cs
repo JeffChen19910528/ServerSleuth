@@ -4,7 +4,10 @@ using ServerSleuth.Analysis.Migration.Diagnostics;
 using ServerSleuth.Analysis.Migration.Models;
 using ServerSleuth.Analysis.Migration.Planning;
 using ServerSleuth.Analysis.Migration.Verification;
+using ServerSleuth.Analysis.Orchestration;
+using ServerSleuth.Analysis.Risk.Diagnostics;
 using ServerSleuth.Analysis.Risk.Models;
+using ServerSleuth.Core.Evidence;
 
 namespace ServerSleuth.Gui.ExecutionHost.Tests.Fixtures;
 
@@ -80,6 +83,27 @@ internal static class MinimalReportFixture
             CoverageWarnings = [],
             GraphValidationErrors = [],
             Diagnostics = new ConsolidationDiagnostics()
+        };
+    }
+
+    public static ScanPipelineResult BuildPipeline()
+    {
+        var server = new ServerRiskSummary
+        {
+            OverallSeverity = AggregateSeverity.None,
+            CriticalCount = 0, HighCount = 0, MediumCount = 0, LowCount = 0, InfoCount = 0,
+            TotalFindingCount = 0, AffectedEntityCount = 0, AffectedBoundaryCount = 0,
+            Findings = [], TopRisks = [],
+            CategoryCounts = new Dictionary<RiskCategory, int>(),
+            SharedDependencyCount = 0,
+            AggregateConfidence = new Confidence(0.0),
+            ApplicationSummaries = [],
+            ServerScopedFindingCount = 0
+        };
+        return new ScanPipelineResult
+        {
+            Report = Build(),
+            Aggregation = new RiskAggregationResult { Server = server, Diagnostics = new RiskAggregationDiagnostics() }
         };
     }
 }

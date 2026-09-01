@@ -38,6 +38,65 @@
             <!-- POPULATED STATE -->
             <StackPanel Visibility="{Binding HasResults, Converter={StaticResource BoolToVisibility}}" Margin="0,16,0,0">
 
+                <!-- GUI-8C: MIGRATION CHECKLIST SUMMARY — aggregate inventory counts across all
+                     applications. Pure sums of ApplicationRowViewModel.Detail.Components.*Count;
+                     never recalculated or fabricated. Inventory-first: this card appears before
+                     the migration-status card so the page answers "what must I prepare?" before
+                     "what is blocked?". Only shown when at least one component was discovered. -->
+                <Border Style="{StaticResource Dashboard.Card}"
+                        Visibility="{Binding HasAnyComponents, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Migration.Checklist}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <WrapPanel Margin="0,8,0,0">
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalDllBinaryCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.DllBinaries}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalDllBinaryCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalRuntimeCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.Runtimes}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalRuntimeCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalServiceCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.Services}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalServiceCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalComComponentCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.ComComponents}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalComComponentCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalSoftwareCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.Software}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalSoftwareCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalScheduledTaskCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.ScheduledTasks}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalScheduledTaskCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalCertificateCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.Certificates}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalCertificateCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalConfigurationCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.Configurations}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalConfigurationCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding TotalExternalConnectionCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Inv.ExternalConnections}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding TotalExternalConnectionCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- MIGRATION SUMMARY — copied verbatim from ServerMigrationSummary, never recalculated. -->
                 <Border Style="{StaticResource Dashboard.Card}">
                     <StackPanel>

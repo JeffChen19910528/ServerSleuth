@@ -1005,3 +1005,122 @@
 - Isolated verification (temp dir, artifact only, no source/bin/obj/NuGet cache): Windows CLI `--help`/`--version`/`scan --help` and a real local scan (34,881 entities, exit code 4) all correct; Windows GUI launched/alive/terminated cleanly with no orphan (non-visual liveness only). Linux CLI verified inside WSL2 Ubuntu with `dotnet` confirmed absent from that instance — `--help`/`--version`/`scan --help` and a real local scan (1,635 entities, exit code 4) all correct, confirming genuine self-containment.
 - No new NuGet packages. No production code or build script was modified — this task is a pure verification pass.
 - **Final Release Build Status: RELEASE BUILD VERIFIED.**
+
+## Unreleased (Phase GUI-8C — Migration Checklist & Inventory-first Reporting) — FINAL GUI PHASE
+
+Completes the product-direction correction started in GUI-8A/8B: ServerSleuth answers
+"what exists on this server?" and "what must I prepare to move it?" before it ever shows
+risk. Risk Assessment remains a secondary, unmodified capability.
+
+### Added
+- `src/ServerSleuth.Reporting/Json/Dto/InventoryEntityDto.cs`: one flattened, serialization-safe
+  DTO covering every discoverable entity type (Dll, Runtime, Service, ComComponent, Software,
+  ScheduledTask, Certificate, Configuration, ExternalDependency) via optional fields, discriminated
+  by `EntityType`. No credential-shaped field — `Configuration.SecretDetected` is deliberately
+  excluded, matching the existing `ConfigurationComponentRow` safety boundary.
+- `ReportDtoMapper.ToDto(report, discovery, boundaries, externalDeps)` (new overload):
+  maps `AggregateDiscoveryResult`/`ApplicationBoundary`/`ExternalDependency` into nine
+  `IReadOnlyList<InventoryEntityDto>` fields on `ServerReportDto`, sorted Name then Id for
+  determinism, each entity attributed to the first application boundary that claims it (or
+  `null` if unclaimed). The original `ToDto(report)` overload is untouched — omitting the new
+  parameters keeps existing JSON output byte-identical.
+- `HtmlReportRenderer`: new optional constructor parameters (`discovery`, `boundaries`,
+  `externalDependencies`). When supplied, the renderer emits nine inventory sections (DLL/Binary,
+  Windows Services, COM Components, Installed Software, Runtime Requirements, Scheduled Tasks,
+  Certificates, Configuration Files, External Connections) plus a new "Migration Checklist"
+  summary section, positioned after Applications and before Actions/Verification
+  Checks/Server-Level Issues/Shared Infrastructure/Dependencies (i.e. inventory and migration
+  preparation before risk). Each section (and the checklist row for its category) is omitted
+  entirely when zero items were discovered — never fabricated. Omitting the new constructor
+  parameters reproduces the exact prior byte-for-byte output (backward compatible).
+- `ReportArtifactFactory.CreateBundle(ScanPipelineResult, ...)` (new overload): renders the HTML
+  artifact from the pipeline's real `Discovery`/`Boundaries`/`ExternalDependencies` while the JSON
+  artifact continues to use `pipeline.Report` as before — one in-memory pipeline result, two
+  artifacts, no second analysis pass.
+- `MigrationOverviewViewModel`: nine `TotalXxxCount` properties (DLL/Binary, Runtime, Service, COM,
+  Software, Scheduled Task, Certificate, Configuration, External Connection) plus
+  `TotalComponentCount`/`HasAnyComponents`, summed from each application's already-computed
+  `Detail.Components.*Count` — never re-scanned, never fabricated.
+- `MigrationView.xaml`: a new summary card ("Migration Checklist") showing the nine per-category
+  totals above, positioned before the existing Migration Summary card — inventory-first ordering
+  applied to the Migration page itself. Each stat is hidden individually when its count is zero.
+- `ApplicationDetailView.xaml`: each of the nine existing per-application component sections (DLL/
+  Binary, Runtime, Services, COM, Configuration, Certificates, Scheduled Tasks, Software, External
+  Connections) now shows its migration action label (Copy / Install & Verify / Create, Configure &
+  Verify / Register & Verify / Configure & Verify / Install & Verify / Create, Configure & Verify /
+  Install, Review & Verify / Verify & Review) inline next to its heading — this is the
+  application-centric migration checklist (GUI-8C §七), reusing the existing detail view rather
+  than a new page. Purely presentational; still hidden per-category when that category has no data.
+- `LocalizedStrings.cs`: `Migration.Checklist`, `Migration.ChecklistSummary`, nine
+  `Migration.Inv.*` per-category labels, and seven `AppDetail.Action.*` migration-action labels —
+  all English + Traditional Chinese.
+- `test/ServerSleuth.Gui.Tests/ViewModels/MigrationChecklistTests.cs` (18 tests): zero counts with
+  no scan/no discovery entities; per-type aggregation across boundaries; `TotalComponentCount` is
+  the sum of the other nine; entities with no boundary membership never counted; an entity claimed
+  by two boundaries counted once per boundary (by design — one migration checklist per
+  application); determinism; all seven `AppDetail.Action.*` keys present in both languages; no
+  credential-shaped public property on `MigrationOverviewViewModel`.
+- `test/ServerSleuth.Reporting.Tests/HtmlReportRendererInventoryFirstTests.cs` (8 tests) +
+  `TestPipeline.RunWithInventory(...)` (new method alongside the existing `Run`, additive only):
+  real discovered component names (e.g. `Dapper.dll`, `EPPlus.dll`, `QINVWorker`) render as
+  inventory, not only inside risk findings; Applications section precedes all nine inventory
+  sections; all nine inventory section ids appear in the exact §11 document order when data
+  exists; Migration Checklist appears after inventory and before Actions/Assessment; a category
+  with zero discovered items is omitted from the checklist entirely (no fabrication); the
+  checklist uses only the approved action vocabulary; empty discovery renders no inventory/
+  checklist sections at all; omitting the new `HtmlReportRenderer` constructor parameters
+  reproduces the old (no-inventory) output.
+
+### Fixed
+- `MigrationChecklistTests.cs` (new file, found already present but not yet compiling): the
+  `ApplicationBoundary` fixture builder omitted its two other required members (`Confidence`,
+  `Reason`), and `LocalizedStrings.Get` was called with a raw language string instead of the
+  `GuiLanguage` enum — both were compile errors, fixed without changing what the tests assert.
+
+### Changed
+- `IGuiReportExportService.Export`/`GuiReportExportService.Export`/`GuiScanExecutor`: the exported
+  parameter changed from `ServerMigrationAssessmentReport` to the full `ScanPipelineResult` so the
+  already-discovered `Discovery`/`Boundaries`/`ExternalDependencies` reach `ReportArtifactFactory`
+  and, from there, `HtmlReportRenderer` — the smallest change needed to make already-collected
+  discovery data visible in the report (GUI-8C §二十七), not a new discovery/analysis path.
+  `ReportsOverviewViewModel`/`ResultsDashboardViewModel` updated to pass `State.PipelineResult`
+  instead of the bare `Report`.
+
+### Security
+- `ServerSleuth.Gui` still does not reference `Infrastructure`/`Windows`/`Linux`/`SSH.NET`/
+  `Microsoft.Management.Infrastructure` — the new checklist view models read only
+  `Core`/`Analysis`/`Gui.Contracts` state already flowing through the existing pages.
+- No new writable/persisted state was introduced anywhere in the checklist — `TotalXxxCount`
+  properties are computed, read-only, and re-derived from `Applications` on every read; no
+  database, no user-completion tracking, no checkbox state.
+- `InventoryEntityDto` carries no password/private-key/secret field; `MigrationOverviewViewModel`
+  has no property whose name matches `Credential`/`SecureString`/`Token`/`Bearer`/`PrivateKey`/
+  `Secret`/`Authentication` (asserted by test).
+- No new HTML `<script>` tag, no execution path, no filesystem/registry/service/COM/network
+  mutation was added anywhere in this phase — the checklist and inventory sections are pure
+  presentation of already-collected, already-analyzed data.
+
+### Notes
+- No new scanner, `IDiscoveryScanner`, `DiscoveryEngine`, `ApplicationBoundaryEngine`,
+  `DependencyExpansionEngine`, `RiskRuleEngine`, `MigrationAssessmentEngine`,
+  `MigrationPlanEngine`, or `MigrationPolicy` was modified. Risk Findings and Migration Assessment
+  sections/calculations are byte-for-byte unchanged from GUI-7C — only their position in the HTML
+  document moved (after inventory + checklist, not before).
+- Root-level `report.json`/`report.html` (present in the working tree, not tracked in git) are the
+  real 53-application QINV acceptance fixture referenced by GUI-8C §28-29 — left untouched. Test
+  fixtures mirror this data's shapes (entity IDs, boundary names, DLL names/paths) synthetically
+  rather than reading these files directly, consistent with the existing test suite's pattern.
+- Full regression: `dotnet build` — 0 warnings, 0 errors, full solution (23 projects). Every
+  non-GUI test project passes 100% (`Core` 61/61, `Analysis` 445/445, `Infrastructure` 171/171,
+  `Linux` 345/345, `Cli.Tests` 98/98 (net8.0) and 104/104 (net8.0-windows), `Integration` 14/14,
+  `Gui.ExecutionHost.Tests` 22/22, `Reporting.Tests` 154/154 including the 8 new GUI-8C tests).
+  `Gui.Tests` (441 total, 18 new) shows the same pre-existing, environment-specific
+  `WaitUntilAsync`/cold-start timing flakiness documented since GUI-6A/GUI-8A — reproduced on
+  unmodified `master` (before this phase's changes) by isolating and re-running the exact same
+  failing test classes, confirming it is unrelated to GUI-8C; not touched to force green.
+- `ServerSleuth.Windows.Tests`' real-machine `WindowsBinaryDiscoveryScanner_AgainstRealMachine_IsBoundedAndNeverExecutesAnything`
+  exceeded its existing bound (5m29s, 18,166 real binaries on this machine) — a pre-existing,
+  machine-dependent limitation per that test's own instruction to investigate rather than
+  silently raise the timeout; not modified.
+- This is the final GUI feature phase per the GUI-8C instructions. No GUI-9 or further feature
+  phase was started.

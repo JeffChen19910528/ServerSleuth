@@ -217,6 +217,28 @@ public static class LocalizedStrings
         ["Overview.ReadyWithConditionsLabel"] = ("Ready With Conditions", "有條件就緒"),
         ["Overview.ReadyLabel"] = ("Ready", "已就緒"),
 
+        // GUI-8C: Migration Checklist page labels
+        ["Migration.Checklist"] = ("Migration Checklist", "遷移清單"),
+        ["Migration.ChecklistSummary"] = ("Total inventory items to prepare across all applications:", "所有應用程式需準備的盤點項目總計："),
+        ["Migration.Inv.DllBinaries"] = ("DLL / Binaries", "DLL / 二進位檔"),
+        ["Migration.Inv.Runtimes"] = ("Runtime", "執行階段"),
+        ["Migration.Inv.Services"] = ("Windows Services", "Windows 服務"),
+        ["Migration.Inv.ComComponents"] = ("COM Components", "COM 元件"),
+        ["Migration.Inv.Software"] = ("Installed Software", "已安裝軟體"),
+        ["Migration.Inv.ScheduledTasks"] = ("Scheduled Tasks", "排程工作"),
+        ["Migration.Inv.Certificates"] = ("Certificates", "憑證"),
+        ["Migration.Inv.Configurations"] = ("Configuration", "設定檔"),
+        ["Migration.Inv.ExternalConnections"] = ("External Connections", "外部連線"),
+
+        // GUI-8C: Migration action labels (used as annotations on component sections)
+        ["AppDetail.Action.Copy"] = ("→ Copy", "→ 複製"),
+        ["AppDetail.Action.Install"] = ("→ Install / Verify", "→ 安裝 / 驗證"),
+        ["AppDetail.Action.Create"] = ("→ Create / Configure / Verify", "→ 建立 / 設定 / 驗證"),
+        ["AppDetail.Action.Register"] = ("→ Register / Verify", "→ 註冊 / 驗證"),
+        ["AppDetail.Action.Configure"] = ("→ Configure / Verify", "→ 設定 / 驗證"),
+        ["AppDetail.Action.InstallSoftware"] = ("→ Install / Review / Verify", "→ 安裝 / 審查 / 驗證"),
+        ["AppDetail.Action.Verify"] = ("→ Verify / Review", "→ 驗證 / 審查"),
+
         // GUI-8A: Inventory-first Dashboard per-type labels
         ["Overview.Inventory"] = ("Inventory", "盤點"),
         ["Overview.Inv.Applications"] = ("Applications", "應用程式"),

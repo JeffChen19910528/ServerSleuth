@@ -22,4 +22,18 @@ public sealed record ServerReportDto
     public required IReadOnlyList<CheckDto> PostMigrationChecks { get; init; }
     public required IReadOnlyList<GraphValidationFindingDto> GraphValidationErrors { get; init; }
     public required DiagnosticsDto Diagnostics { get; init; }
+
+    // GUI-8C: server-wide inventory sections. Empty by default for backward compatibility
+    // (reports built without inventory data simply omit these sections). Each list is sorted
+    // Name then Id for deterministic output. Entities not attributed to any boundary have
+    // ApplicationName = null.
+    public IReadOnlyList<InventoryEntityDto> DllBinaries { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> Runtimes { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> Services { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> ComComponents { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> Software { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> ScheduledTasks { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> Certificates { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> Configurations { get; init; } = [];
+    public IReadOnlyList<InventoryEntityDto> ExternalConnections { get; init; } = [];
 }

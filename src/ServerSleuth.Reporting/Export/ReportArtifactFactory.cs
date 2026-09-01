@@ -1,4 +1,5 @@
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Reporting.Html;
 using ServerSleuth.Reporting.Json;
 
@@ -50,6 +51,34 @@ public static class ReportArtifactFactory
 
         var jsonResult = new JsonReportRenderer().Render(report);
         var htmlResult = new HtmlReportRenderer().Render(report);
+
+        return new ReportBundle
+        {
+            Json = FromRenderResult(jsonResult, jsonFileName),
+            Html = FromRenderResult(htmlResult, htmlFileName)
+        };
+    }
+
+    /// <summary>
+    /// GUI-8C overload — produces an inventory-first HTML report by passing the full
+    /// <paramref name="pipeline"/>'s discovery data to <see cref="HtmlReportRenderer"/> so it
+    /// can render nine entity-type sections before the risk/migration sections. The JSON report
+    /// uses <c>pipeline.Report</c> as before (existing JSON schema is forward-extended with
+    /// optional inventory lists). Both artifacts are rendered from the same in-memory data;
+    /// no second analysis pass is performed.
+    /// </summary>
+    public static ReportBundle CreateBundle(ScanPipelineResult pipeline, string? filePrefix = null)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+
+        var jsonFileName = filePrefix is null ? DefaultJsonFileName : $"{filePrefix}.json";
+        var htmlFileName = filePrefix is null ? DefaultHtmlFileName : $"{filePrefix}.html";
+
+        var jsonResult = new JsonReportRenderer().Render(pipeline.Report);
+        var htmlResult = new HtmlReportRenderer(
+            discovery: pipeline.Discovery,
+            boundaries: pipeline.Boundaries,
+            externalDependencies: pipeline.ExternalDependencies).Render(pipeline.Report);
 
         return new ReportBundle
         {

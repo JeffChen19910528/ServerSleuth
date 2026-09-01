@@ -45,9 +45,11 @@ public class GuiReportExportServiceArchitectureTests
         }
     }
 
-    /// <summary>The one method that actually performs the export takes exactly a report, an
-    /// output directory string, and the GUI's own format/policy enums — never anything from the
-    /// discovery/correlation/risk/migration ENGINE side of the pipeline.</summary>
+    /// <summary>The one method that actually performs the export takes exactly a completed pipeline
+    /// result (never an engine or live runner), an output directory string, and the GUI's own
+    /// format/policy enums — never anything from the discovery/correlation/risk/migration ENGINE
+    /// side of the pipeline. GUI-8C: parameter upgraded from ServerMigrationAssessmentReport to
+    /// ScanPipelineResult so inventory data reaches the HTML renderer.</summary>
     [Fact]
     public void Export_MethodSignature_TakesOnlyAnAlreadyCompleteReport_NeverAnEngine()
     {
@@ -55,7 +57,7 @@ public class GuiReportExportServiceArchitectureTests
         Assert.NotNull(method);
 
         var parameterTypeNames = method!.GetParameters().Select(p => p.ParameterType.Name).ToList();
-        Assert.Contains("ServerMigrationAssessmentReport", parameterTypeNames);
+        Assert.Contains("ScanPipelineResult", parameterTypeNames);
         Assert.DoesNotContain(parameterTypeNames, name => ForbiddenTypeNamePatterns.Any(f => name.Contains(f, StringComparison.Ordinal)));
     }
 }

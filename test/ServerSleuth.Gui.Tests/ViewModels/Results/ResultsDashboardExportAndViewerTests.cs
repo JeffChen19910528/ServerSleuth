@@ -78,7 +78,7 @@ public class ResultsDashboardExportAndViewerTests
 
         var call = Assert.Single(export.Calls);
         Assert.Equal(format, call.Format);
-        Assert.Equal(vm.Report, call.Report); // the EXACT same report instance — never a copy.
+        Assert.Same(vm.State.PipelineResult, call.Pipeline); // the EXACT same pipeline instance — never a copy.
         Assert.Equal(@"C:\fixture-output", call.OutputDirectory);
     }
 

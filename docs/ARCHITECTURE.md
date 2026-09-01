@@ -2097,6 +2097,116 @@ unchanged. No new NuGet package. No chart library. No filter/navigation change.
 `DashboardInventoryCountsTests` count by C# class only, never by `Type` string — immune to
 scanner vocabulary variance by construction.
 
+## Phase GUI-8C Addendum — Migration Checklist & Inventory-first Reporting (as built) — FINAL GUI PHASE
+
+**Goal:** Finish the product-direction correction started in GUI-8A/8B. The HTML report and the
+Migration page must let a developer answer "what exists?" and "what do I prepare to migrate it?"
+without opening Risk Findings — Risk Assessment stays a secondary, unmodified capability, never
+deleted, never repositioned ahead of inventory.
+
+**What changed:**
+
+- **`InventoryEntityDto`** (`ServerSleuth.Reporting/Json/Dto/`) — one flattened DTO record
+  covering every discoverable entity type via optional fields (`EntityType` is the discriminator).
+  No credential-shaped field is present; `Configuration.SecretDetected` is deliberately omitted,
+  the same rule `ConfigurationComponentRow` already applies in the GUI.
+
+- **`ReportDtoMapper.ToDto(report, discovery, boundaries, externalDeps)`** — a second overload
+  (the original `ToDto(report)` is untouched) that projects `AggregateDiscoveryResult.Entities`
+  by C# type (`OfType<Dll>()`, `OfType<Service>()`, …) plus `ExternalDependency` into nine sorted
+  `InventoryEntityDto` lists on `ServerReportDto`, attributing each entity to the first
+  `ApplicationBoundary` whose `MemberEntityIds` contains it (or leaving `ApplicationName` null).
+  Sort key is Name (`OrdinalIgnoreCase`) then Id (`Ordinal`) — deterministic, and matches the
+  ordering `ApplicationComponentsViewModel` already uses for the same data.
+
+- **`HtmlReportRenderer`** — three new optional constructor parameters
+  (`AggregateDiscoveryResult? discovery`, `IReadOnlyList<ApplicationBoundary>? boundaries`,
+  `IReadOnlyList<ExternalDependency>? externalDependencies`). When all three are supplied, the
+  renderer calls the new `ReportDtoMapper` overload and emits, in this document order: Executive
+  Summary → Coverage → **Applications** → **nine inventory sections** (DLL/Binary, Windows
+  Services, COM Components, Installed Software, Runtime Requirements, Scheduled Tasks,
+  Certificates, Configuration Files, External Connections) → **Migration Checklist** (a summary
+  table: category, discovered count, migration action — using only the seven approved verbs —
+  omitted entirely when there is nothing to prepare) → Actions/Pre- and Post-Migration
+  Verification Checks (Migration Assessment) → Server-Level Issues/Shared
+  Infrastructure/Dependency Groups (Risk) → Graph Validation Errors → Diagnostics. Every
+  inventory section and every checklist row is skipped when its category's count is zero — never
+  fabricated. Omitting the three new parameters (the existing `HtmlReportRenderer()` and
+  `HtmlReportRenderer(generatedAt)` call sites) reproduces the exact prior byte-for-byte HTML —
+  fully backward compatible; no second renderer was created, `ReportDtoMapper` was extended, not
+  duplicated.
+
+- **`ReportArtifactFactory.CreateBundle(ScanPipelineResult pipeline, ...)`** — a second overload
+  (the original `CreateBundle(ServerMigrationAssessmentReport)` is untouched) that renders the
+  HTML artifact through the new `HtmlReportRenderer` inventory parameters while the JSON artifact
+  still renders `pipeline.Report` through the plain `JsonReportRenderer` — one pipeline result
+  in memory, two artifacts, no second analysis pass, no new NuGet package.
+
+- **`IGuiReportExportService`/`GuiReportExportService`/`GuiScanExecutor`** — the exported
+  parameter type changed from `ServerMigrationAssessmentReport` to the full `ScanPipelineResult`,
+  the minimal change needed to carry `Discovery`/`Boundaries`/`ExternalDependencies` from the GUI's
+  already-completed scan through to `ReportArtifactFactory.CreateBundle`. This is the "smallest
+  architecture change necessary to expose already-existing discovery information" the phase
+  instructions allow — no new discovery/analysis/export code path, no second exporter.
+  `ReportsOverviewViewModel`/`ResultsDashboardViewModel` updated to pass `State.PipelineResult`
+  (already held) instead of the narrower `Report`.
+
+- **`MigrationOverviewViewModel`** — nine `TotalXxxCount` properties (DLL/Binary, Runtime,
+  Service, COM Component, Software, Scheduled Task, Certificate, Configuration, External
+  Connection) plus `TotalComponentCount` (their sum) and `HasAnyComponents`, each a pure `Sum`
+  over `Applications[i].Detail.Components.*Count` — the same per-application counts
+  `ApplicationComponentsViewModel` (GUI-8B) already computes, never re-derived from raw entities
+  and never persisted.
+
+- **`MigrationView.xaml`** — a new "Migration Checklist" summary card showing the nine totals
+  above, positioned before the existing Migration Summary (Blocked/Needs Remediation/etc.) card —
+  inventory-first ordering applied to the Migration page itself, matching the HTML report's
+  section order. Only shown when `HasAnyComponents`; each individual stat hides itself at zero.
+
+- **`ApplicationDetailView.xaml`** — this is the application-centric migration checklist called
+  for by the phase instructions (§七): each of the nine existing per-application component
+  sections (already built in GUI-8B) now carries its migration-action label inline next to its
+  heading (Copy; Install & Verify; Create, Configure & Verify; Register & Verify; Configure &
+  Verify; Install, Review & Verify; Verify & Review — the seven-verb vocabulary, reused per
+  category). No new page was created — the existing detail view already showed
+  Application → Components → Runtime → Services → COM → Configuration → Certificates → Scheduled
+  Tasks → Software → External Connections, so the labels were added there rather than building a
+  second view of the same data. Still purely presentational: a `TextBlock`, never a checkbox with
+  persisted state, and still hidden per-category when that category's `Has*` flag is false.
+
+- **`LocalizedStrings.cs`** — `Migration.Checklist`, `Migration.ChecklistSummary`, nine
+  `Migration.Inv.*` category labels, seven `AppDetail.Action.*` verb labels — English +
+  Traditional Chinese for all sixteen.
+
+**Tests added:**
+- `MigrationChecklistTests.cs` (18 tests, `ServerSleuth.Gui.Tests`) — zero-state guards, per-type
+  aggregation across application boundaries, `TotalComponentCount` equals the sum of the other
+  nine, an entity with no boundary membership is never counted, an entity shared by two
+  boundaries counts once per boundary (one checklist per application, by design), determinism
+  across rebuilds, all seven `AppDetail.Action.*` keys present in both languages, and no
+  credential-shaped public property on `MigrationOverviewViewModel`.
+- `HtmlReportRendererInventoryFirstTests.cs` (8 tests, `ServerSleuth.Reporting.Tests`), backed by
+  a new additive `TestPipeline.RunWithInventory(...)` helper — real component names
+  (`Dapper.dll`, `EPPlus.dll`, `QINVWorker`) render as inventory rather than only inside risk
+  findings; Applications precede all inventory sections; the nine inventory section ids appear in
+  the exact §11 order when data exists; the Migration Checklist section appears after inventory
+  and before Actions/Assessment; a category with zero discovered items never appears in the
+  checklist; the checklist uses only the approved verb vocabulary; empty discovery renders no
+  inventory/checklist sections; omitting the new `HtmlReportRenderer` parameters reproduces the
+  old no-inventory output exactly.
+
+**What was not changed:** No scanner, `IDiscoveryScanner`, `DiscoveryEngine`,
+`ApplicationBoundaryEngine`, `DependencyExpansionEngine`, `RiskRuleEngine`,
+`MigrationAssessmentEngine`, `MigrationPlanEngine`, or `MigrationPolicy` calculation logic was
+touched — Risk Findings and Migration Assessment content is byte-for-byte identical to GUI-7C,
+only its position in the HTML document moved. `ServerSleuth.Gui`'s assembly-reference boundary is
+unchanged (still no `Infrastructure`/`Windows`/`Linux`/`SSH.NET`/
+`Microsoft.Management.Infrastructure` reference). No database, no user-completion tracking, no
+new NuGet package, no chart library, no new page (the checklist lives on the existing Migration
+and Application Detail pages), no execution/deployment/remote-operation capability of any kind.
+
+This is the final GUI feature phase; no GUI-9 or further feature phase follows.
+
 ## Decisions Log
 
 | Decision | Rationale | Date |

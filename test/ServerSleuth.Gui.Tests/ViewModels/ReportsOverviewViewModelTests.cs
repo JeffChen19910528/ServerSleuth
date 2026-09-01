@@ -74,7 +74,7 @@ public class ReportsOverviewViewModelTests
 
         Assert.Single(exporter.Calls);
         var call = exporter.Calls[0];
-        Assert.Same(state.PipelineResult!.Report, call.Report);
+        Assert.Same(state.PipelineResult, call.Pipeline);
         Assert.Equal("./out2", call.OutputDirectory);
         Assert.Equal(ScanOutputFormat.Json, call.Format);
         Assert.Equal(ScanOverwritePolicy.Overwrite, call.OverwritePolicy);

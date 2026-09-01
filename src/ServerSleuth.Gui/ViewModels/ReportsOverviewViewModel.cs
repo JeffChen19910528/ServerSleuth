@@ -1,4 +1,3 @@
-using ServerSleuth.Analysis.Migration.Consolidation;
 using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
@@ -29,8 +28,6 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
         State = state;
         _exportService = exportService;
         _viewerService = viewerService;
-        Report = state.PipelineResult?.Report;
-
         _exportDirectory = state.OutputDirectory;
         _selectedReportFileName = ReportFileNames.FirstOrDefault() ?? string.Empty;
 
@@ -38,7 +35,7 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
 
         ExportReportCommand = new RelayCommand(
             _ => ExecuteExport(),
-            _ => _exportService is not null && Report is not null && !string.IsNullOrWhiteSpace(ExportDirectory));
+            _ => _exportService is not null && State.PipelineResult is not null && !string.IsNullOrWhiteSpace(ExportDirectory));
 
         OpenReportCommand = new RelayCommand(
             _ => ExecuteOpenReport(),
@@ -49,9 +46,7 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
 
     public ScanExecutionState State { get; }
 
-    public ServerMigrationAssessmentReport? Report { get; }
-
-    public bool HasResults => Report is not null;
+    public bool HasResults => State.PipelineResult is not null;
 
     public bool HasNoResults => !HasResults;
 
@@ -139,12 +134,12 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
 
     private void ExecuteExport()
     {
-        if (_exportService is null || Report is null)
+        if (_exportService is null || State.PipelineResult is null)
         {
             return;
         }
 
-        LastExportResult = _exportService.Export(Report, ExportDirectory, ExportFormat, ExportOverwritePolicy);
+        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy);
     }
 
     /// <summary>Raised by the empty-state "Start Scan" button.</summary>

@@ -79,7 +79,7 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
 
         ExportReportCommand = new RelayCommand(
             _ => ExecuteExport(),
-            _ => _exportService is not null && Report is not null && !string.IsNullOrWhiteSpace(ExportDirectory));
+            _ => _exportService is not null && State.PipelineResult is not null && !string.IsNullOrWhiteSpace(ExportDirectory));
 
         OpenReportCommand = new RelayCommand(
             _ => ExecuteOpenReport(),
@@ -152,14 +152,14 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
 
     private void ExecuteExport()
     {
-        if (_exportService is null || Report is null)
+        if (_exportService is null || State.PipelineResult is null)
         {
             return;
         }
 
         // skill.md GUI-5 §4: never fabricated — whatever IGuiReportExportService itself reports
         // (success or a specific failure reason) is exactly what gets bound here.
-        LastExportResult = _exportService.Export(Report, ExportDirectory, ExportFormat, ExportOverwritePolicy);
+        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy);
     }
 
     // ----- GUI-5 §2: Report Viewer — reads an already-written report file's raw text; never

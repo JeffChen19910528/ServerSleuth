@@ -3,6 +3,9 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Core.Boundaries;
+using ServerSleuth.Core.Models;
+using ServerSleuth.Core.Orchestration;
 using ServerSleuth.Reporting.Json.Dto;
 
 namespace ServerSleuth.Reporting.Html;
@@ -27,17 +30,28 @@ namespace ServerSleuth.Reporting.Html;
 public sealed class HtmlReportRenderer : IReportRenderer
 {
     private readonly DateTimeOffset? _generatedAt;
+    private readonly AggregateDiscoveryResult? _discovery;
+    private readonly IReadOnlyList<ApplicationBoundary>? _boundaries;
+    private readonly IReadOnlyList<ExternalDependency>? _externalDependencies;
 
     /// <summary>
-    /// <paramref name="generatedAt"/> is opt-in and <c>null</c> by default (§22: "if a generated
-    /// document title contains a timestamp, make it explicitly opt-in and exclude it from the
-    /// deterministic renderer tests") — with no value supplied, the document contains no
-    /// timestamp, GUID, or other non-reproducible content at all, so default output is always
-    /// byte-identical for the same report.
+    /// <paramref name="generatedAt"/> is opt-in and <c>null</c> by default (§22). The optional
+    /// inventory parameters (<paramref name="discovery"/>, <paramref name="boundaries"/>,
+    /// <paramref name="externalDependencies"/>) are GUI-8C additions — when supplied the HTML
+    /// gains nine inventory sections (DLL, Runtime, Service, COM, Software, Task, Certificate,
+    /// Config, External) positioned before Risk/Migration sections. Omitting them keeps the
+    /// existing output byte-identical (backward compatible).
     /// </summary>
-    public HtmlReportRenderer(DateTimeOffset? generatedAt = null)
+    public HtmlReportRenderer(
+        DateTimeOffset? generatedAt = null,
+        AggregateDiscoveryResult? discovery = null,
+        IReadOnlyList<ApplicationBoundary>? boundaries = null,
+        IReadOnlyList<ExternalDependency>? externalDependencies = null)
     {
         _generatedAt = generatedAt;
+        _discovery = discovery;
+        _boundaries = boundaries;
+        _externalDependencies = externalDependencies;
     }
 
     public ReportFormat Format => ReportFormat.Html;
@@ -46,7 +60,10 @@ public sealed class HtmlReportRenderer : IReportRenderer
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var dto = ReportDtoMapper.ToDto(report);
+        var dto = _discovery is not null && _boundaries is not null && _externalDependencies is not null
+            ? ReportDtoMapper.ToDto(report, _discovery, _boundaries, _externalDependencies)
+            : ReportDtoMapper.ToDto(report);
+
         var html = BuildDocument(dto);
 
         return new ReportRenderResult
@@ -77,17 +94,145 @@ public sealed class HtmlReportRenderer : IReportRenderer
         AppendExecutiveSummary(sb, dto);
         AppendCoverage(sb, dto);
         AppendApplications(sb, dto.Applications);
-        AppendIssueList(sb, "Server-Level Issues", dto.ServerLevelIssues);
-        AppendSharedInfrastructure(sb, dto.SharedInfrastructure);
-        AppendDependencyGroups(sb, dto.Dependencies);
+
+        // GUI-8C: inventory sections — appear before risk/migration so the report answers
+        // "what must I prepare?" before "what is blocked?". Each section is skipped when empty.
+        AppendInventorySection(sb, "dll-binaries", "DLL / Binary", dto.DllBinaries);
+        AppendInventorySection(sb, "windows-services", "Windows Services", dto.Services);
+        AppendInventorySection(sb, "com-components", "COM Components", dto.ComComponents);
+        AppendInventorySection(sb, "installed-software", "Installed Software", dto.Software);
+        AppendInventorySection(sb, "runtime-requirements", "Runtime Requirements", dto.Runtimes);
+        AppendInventorySection(sb, "scheduled-tasks", "Scheduled Tasks", dto.ScheduledTasks);
+        AppendInventorySection(sb, "certificates", "Certificates", dto.Certificates);
+        AppendInventorySection(sb, "configuration-files", "Configuration Files", dto.Configurations);
+        AppendInventorySection(sb, "external-connections", "External Connections", dto.ExternalConnections);
+
+        AppendMigrationChecklist(sb, dto);
+
         AppendActions(sb, dto.Actions);
         AppendChecks(sb, "Pre-Migration Verification Checks", dto.PreMigrationChecks);
         AppendChecks(sb, "Post-Migration Verification Checks", dto.PostMigrationChecks);
+        AppendIssueList(sb, "Server-Level Issues", dto.ServerLevelIssues);
+        AppendSharedInfrastructure(sb, dto.SharedInfrastructure);
+        AppendDependencyGroups(sb, dto.Dependencies);
         AppendGraphValidationErrors(sb, dto.GraphValidationErrors);
         AppendDiagnostics(sb, dto.Diagnostics);
 
         sb.Append("</main>\n</body>\n</html>\n");
         return sb.ToString();
+    }
+
+    private static void AppendInventorySection(
+        StringBuilder sb, string id, string title, IReadOnlyList<InventoryEntityDto> entities)
+    {
+        if (entities.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("<section id=\"").Append(id).Append("\">\n");
+        sb.Append("<h2>").Append(Esc(title)).Append(" (").Append(entities.Count).Append(")</h2>\n");
+        sb.Append("<details class=\"panel\">\n<summary>").Append(Esc(title)).Append(" — ")
+            .Append(entities.Count).Append(" item").Append(entities.Count == 1 ? string.Empty : "s").Append("</summary>\n");
+
+        sb.Append("<table>\n<thead><tr>");
+        sb.Append("<th>Name</th><th>Application</th><th>Version / Details</th><th>Path</th><th>Status</th>");
+        sb.Append("</tr></thead>\n<tbody>\n");
+
+        foreach (var e in entities)
+        {
+            sb.Append("<tr>");
+            sb.Append("<td><strong>").Append(Esc(e.Name)).Append("</strong>");
+            if (!string.IsNullOrEmpty(e.Architecture))
+            {
+                sb.Append("<br><span class=\"muted\">").Append(Esc(e.Architecture)).Append("</span>");
+            }
+            if (!string.IsNullOrEmpty(e.DisplayName) && e.DisplayName != e.Name)
+            {
+                sb.Append("<br><span class=\"muted\">").Append(Esc(e.DisplayName)).Append("</span>");
+            }
+            if (!string.IsNullOrEmpty(e.Subject))
+            {
+                sb.Append("<br><span class=\"muted\">").Append(Esc(e.Subject)).Append("</span>");
+            }
+            if (!string.IsNullOrEmpty(e.Clsid))
+            {
+                sb.Append("<br><code>").Append(Esc(e.Clsid)).Append("</code>");
+            }
+            if (!string.IsNullOrEmpty(e.Kind))
+            {
+                sb.Append("<br><span class=\"muted\">").Append(Esc(e.Kind)).Append("</span>");
+            }
+            sb.Append("</td>");
+
+            sb.Append("<td>").Append(Esc(e.ApplicationName)).Append("</td>");
+
+            sb.Append("<td>");
+            if (!string.IsNullOrEmpty(e.Version)) { sb.Append(Esc(e.Version)); }
+            if (!string.IsNullOrEmpty(e.StartType)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.StartType)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.ServiceAccount)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.ServiceAccount)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.ThreadingModel)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.ThreadingModel)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.ValidTo)) { sb.Append("<br><span class=\"muted\">Valid to: ").Append(Esc(e.ValidTo)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.Folder)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.Folder)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.RunAsAccount)) { sb.Append("<br><span class=\"muted\">Run as: ").Append(Esc(e.RunAsAccount)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.Format)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.Format)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.Publisher)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.Publisher)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.InstallDate)) { sb.Append("<br><span class=\"muted\">").Append(Esc(e.InstallDate)).Append("</span>"); }
+            if (!string.IsNullOrEmpty(e.Endpoint)) { sb.Append("<br><code>").Append(Esc(e.Endpoint)).Append("</code>"); }
+            sb.Append("</td>");
+
+            var pathValue = !string.IsNullOrEmpty(e.InstallLocation) ? e.InstallLocation
+                : !string.IsNullOrEmpty(e.ExecutablePath) ? e.ExecutablePath
+                : e.Path;
+            sb.Append("<td><span class=\"muted\">").Append(Esc(pathValue)).Append("</span></td>");
+
+            sb.Append("<td>").Append(Esc(e.Status)).Append("</td>");
+
+            sb.Append("</tr>\n");
+        }
+
+        sb.Append("</tbody>\n</table>\n</details>\n</section>\n");
+    }
+
+    /// <summary>
+    /// GUI-8C §12 — a dedicated "Migration Checklist" section summarizing what must be prepared
+    /// per discovered category, using only the presentation-level action vocabulary (Copy,
+    /// Install, Create, Register, Configure, Verify, Review — §五). This is a summary of the
+    /// per-item inventory tables above; it performs no calculation and fabricates nothing —
+    /// counts are the same <see cref="InventoryEntityDto"/> lists already rendered. A category
+    /// with zero discovered items is omitted entirely (§四: never fabricate an item for an
+    /// absent category).
+    /// </summary>
+    private static void AppendMigrationChecklist(StringBuilder sb, ServerReportDto dto)
+    {
+        var rows = new (string Category, int Count, string Action)[]
+        {
+            ("Application Components (DLL / Binary)", dto.DllBinaries.Count, "Copy"),
+            ("Runtime Requirements", dto.Runtimes.Count, "Install / Verify"),
+            ("Windows Services", dto.Services.Count, "Create / Configure / Verify"),
+            ("COM Components", dto.ComComponents.Count, "Register / Verify"),
+            ("Installed Software", dto.Software.Count, "Install / Review / Verify"),
+            ("Scheduled Tasks", dto.ScheduledTasks.Count, "Create / Configure / Verify"),
+            ("Certificates", dto.Certificates.Count, "Install / Verify"),
+            ("Configuration", dto.Configurations.Count, "Configure / Verify"),
+            ("External Connections", dto.ExternalConnections.Count, "Verify / Review"),
+        };
+
+        var applicable = rows.Where(r => r.Count > 0).ToList();
+        if (applicable.Count == 0)
+        {
+            return;
+        }
+
+        sb.Append("<section id=\"migration-checklist\">\n<h2>Migration Checklist</h2>\n");
+        sb.Append("<p class=\"muted\">What to prepare when moving this server's applications to a new server.</p>\n");
+        sb.Append("<table>\n<thead><tr><th>Category</th><th>Discovered</th><th>Migration Action</th></tr></thead>\n<tbody>\n");
+        foreach (var row in applicable)
+        {
+            sb.Append("<tr><td>").Append(Esc(row.Category)).Append("</td><td>").Append(row.Count)
+                .Append("</td><td>").Append(Esc(row.Action)).Append("</td></tr>\n");
+        }
+        sb.Append("</tbody>\n</table>\n</section>\n");
     }
 
     private static void AppendExecutiveSummary(StringBuilder sb, ServerReportDto dto)

@@ -28,7 +28,10 @@
 
                 <!-- DLL / Binary -->
                 <StackPanel Visibility="{Binding Components.HasDllBinaries, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.DllBinaries}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.DllBinaries}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Copy}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.DllBinaries}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:Dll}">
@@ -45,7 +48,10 @@
 
                 <!-- Runtime Requirements -->
                 <StackPanel Visibility="{Binding Components.HasRuntimes, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.Runtimes}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.Runtimes}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Install}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.Runtimes}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:Runtime}">
@@ -61,7 +67,10 @@
 
                 <!-- Windows Services -->
                 <StackPanel Visibility="{Binding Components.HasServices, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.Services}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.Services}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Create}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.Services}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:Service}">
@@ -77,7 +86,10 @@
 
                 <!-- COM Components -->
                 <StackPanel Visibility="{Binding Components.HasComComponents, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.ComComponents}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.ComComponents}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Register}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.ComComponents}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:ComComponent}">
@@ -95,7 +107,10 @@
 
                 <!-- Configuration -->
                 <StackPanel Visibility="{Binding Components.HasConfigurations, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.Configurations}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.Configurations}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Configure}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.Configurations}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type guiResults:ConfigurationComponentRow}">
@@ -112,7 +127,10 @@
 
                 <!-- Certificates -->
                 <StackPanel Visibility="{Binding Components.HasCertificates, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.Certificates}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.Certificates}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Install}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.Certificates}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:Certificate}">
@@ -130,7 +148,10 @@
 
                 <!-- Scheduled Tasks -->
                 <StackPanel Visibility="{Binding Components.HasScheduledTasks, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.ScheduledTasks}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.ScheduledTasks}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Create}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.ScheduledTasks}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:ScheduledTask}">
@@ -147,7 +168,10 @@
 
                 <!-- Installed Software -->
                 <StackPanel Visibility="{Binding Components.HasSoftware, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.Software}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.Software}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.InstallSoftware}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.Software}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:Software}">
@@ -163,7 +187,10 @@
 
                 <!-- External Connections -->
                 <StackPanel Visibility="{Binding Components.HasExternalConnections, Converter={StaticResource BoolToVisibility}}">
-                    <TextBlock Text="{DynamicResource AppDetail.ExternalConnections}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <StackPanel Orientation="Horizontal" Margin="0,8,0,2">
+                        <TextBlock Text="{DynamicResource AppDetail.ExternalConnections}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                        <TextBlock Text="{DynamicResource AppDetail.Action.Verify}" Style="{StaticResource Text.Muted}" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding Components.ExternalConnections}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type coreModels:ExternalDependency}">

@@ -1,4 +1,5 @@
 using System.IO;
+using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Gui.ExecutionHost.Tests.Fixtures;
 using ServerSleuth.Gui.Models;
 
@@ -26,7 +27,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_Json_WritesOnlyReportJson()
     {
-        var result = _service.Export(MinimalReportFixture.Build(), _outputDirectory, ScanOutputFormat.Json, ScanOverwritePolicy.FailIfExists);
+        var result = _service.Export(MinimalReportFixture.BuildPipeline(), _outputDirectory, ScanOutputFormat.Json, ScanOverwritePolicy.FailIfExists);
 
         Assert.True(result.Success);
         Assert.Equal(["report.json"], result.WrittenFileNames);
@@ -37,7 +38,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_Html_WritesOnlyReportHtml()
     {
-        var result = _service.Export(MinimalReportFixture.Build(), _outputDirectory, ScanOutputFormat.Html, ScanOverwritePolicy.FailIfExists);
+        var result = _service.Export(MinimalReportFixture.BuildPipeline(), _outputDirectory, ScanOutputFormat.Html, ScanOverwritePolicy.FailIfExists);
 
         Assert.True(result.Success);
         Assert.Equal(["report.html"], result.WrittenFileNames);
@@ -48,7 +49,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_Both_WritesBothFiles_FromTheSameReportInstance()
     {
-        var result = _service.Export(MinimalReportFixture.Build(), _outputDirectory, ScanOutputFormat.Both, ScanOverwritePolicy.FailIfExists);
+        var result = _service.Export(MinimalReportFixture.BuildPipeline(), _outputDirectory, ScanOutputFormat.Both, ScanOverwritePolicy.FailIfExists);
 
         Assert.True(result.Success);
         Assert.Equal(2, result.WrittenFileNames.Count);
@@ -59,7 +60,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_FailIfExists_SecondExportToTheSameDirectory_Fails_AndNeverOverwrites()
     {
-        var report = MinimalReportFixture.Build();
+        var report = MinimalReportFixture.BuildPipeline();
         var first = _service.Export(report, _outputDirectory, ScanOutputFormat.Json, ScanOverwritePolicy.FailIfExists);
         Assert.True(first.Success);
 
@@ -76,7 +77,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_Overwrite_SecondExportToTheSameDirectory_Succeeds()
     {
-        var report = MinimalReportFixture.Build();
+        var report = MinimalReportFixture.BuildPipeline();
         var first = _service.Export(report, _outputDirectory, ScanOutputFormat.Json, ScanOverwritePolicy.Overwrite);
         Assert.True(first.Success);
 
@@ -91,7 +92,7 @@ public sealed class GuiReportExportServiceTests : IDisposable
     {
         var invalidPath = "C:\\invalid" + new string(Path.GetInvalidPathChars());
 
-        var result = _service.Export(MinimalReportFixture.Build(), invalidPath, ScanOutputFormat.Json, ScanOverwritePolicy.FailIfExists);
+        var result = _service.Export(MinimalReportFixture.BuildPipeline(), invalidPath, ScanOutputFormat.Json, ScanOverwritePolicy.FailIfExists);
 
         Assert.False(result.Success);
         Assert.Equal(GuiReportExportFailureReason.InvalidPath, result.FailureReason);
@@ -100,18 +101,18 @@ public sealed class GuiReportExportServiceTests : IDisposable
     [Fact]
     public void Export_NeverMutatesTheReportItWasHandled()
     {
-        var report = MinimalReportFixture.Build();
-        var applicationCountBefore = report.ApplicationAssessments.Count;
+        var pipeline = MinimalReportFixture.BuildPipeline();
+        var applicationCountBefore = pipeline.Report.ApplicationAssessments.Count;
 
-        _service.Export(report, _outputDirectory, ScanOutputFormat.Both, ScanOverwritePolicy.Overwrite);
+        _service.Export(pipeline, _outputDirectory, ScanOutputFormat.Both, ScanOverwritePolicy.Overwrite);
 
-        Assert.Equal(applicationCountBefore, report.ApplicationAssessments.Count);
+        Assert.Equal(applicationCountBefore, pipeline.Report.ApplicationAssessments.Count);
     }
 
     [Fact]
     public void Export_CalledTwiceWithTheSameReportAndOverwrite_ProducesByteIdenticalOutput_Deterministic()
     {
-        var report = MinimalReportFixture.Build();
+        var report = MinimalReportFixture.BuildPipeline();
         _service.Export(report, _outputDirectory, ScanOutputFormat.Json, ScanOverwritePolicy.Overwrite);
         var firstBytes = File.ReadAllBytes(Path.Combine(_outputDirectory, "report.json"));
 

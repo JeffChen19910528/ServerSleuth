@@ -1,4 +1,4 @@
-using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Services;
 using ServerSleuth.Reporting.Export;
@@ -18,13 +18,13 @@ namespace ServerSleuth.Gui.ExecutionHost;
 public sealed class GuiReportExportService : IGuiReportExportService
 {
     public GuiReportExportResult Export(
-        ServerMigrationAssessmentReport report,
+        ScanPipelineResult pipeline,
         string outputDirectory,
         ScanOutputFormat format,
         ScanOverwritePolicy overwritePolicy,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(report);
+        ArgumentNullException.ThrowIfNull(pipeline);
 
         if (string.IsNullOrWhiteSpace(outputDirectory) || outputDirectory.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
         {
@@ -33,7 +33,7 @@ public sealed class GuiReportExportService : IGuiReportExportService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var outcome = ExportReport(report, outputDirectory, format, overwritePolicy);
+        var outcome = ExportReport(pipeline, outputDirectory, format, overwritePolicy);
         if (outcome.Success)
         {
             return GuiReportExportResult.Succeeded(outcome.WrittenFileNames);
@@ -53,11 +53,12 @@ public sealed class GuiReportExportService : IGuiReportExportService
     /// <summary>The single shared implementation — mirrors <c>ServerSleuth.Cli.Pipeline.ReportExportRunner.Export</c>
     /// exactly, adapted only to the GUI's own <see cref="ScanOutputFormat"/>/<see cref="ScanOverwritePolicy"/>
     /// mirror enums. <c>GuiScanExecutor</c>'s end-of-scan export and this on-demand dashboard
-    /// export both call this same method — never two independent export code paths.</summary>
+    /// export both call this same method — never two independent export code paths.
+    /// GUI-8C: accepts <see cref="ScanPipelineResult"/> so inventory data reaches the HTML renderer.</summary>
     internal static GuiScanExportOutcome ExportReport(
-        ServerMigrationAssessmentReport report, string outputDirectory, ScanOutputFormat format, ScanOverwritePolicy overwritePolicy)
+        ScanPipelineResult pipeline, string outputDirectory, ScanOutputFormat format, ScanOverwritePolicy overwritePolicy)
     {
-        var bundle = ReportArtifactFactory.CreateBundle(report);
+        var bundle = ReportArtifactFactory.CreateBundle(pipeline);
         var exporter = new LocalFileReportExporter();
         var reportOverwritePolicy = overwritePolicy == ScanOverwritePolicy.Overwrite
             ? ReportOverwritePolicy.Overwrite

@@ -48,7 +48,7 @@ public sealed class CliGuiEquivalenceTests : IDisposable
             new DiscoveryContext { Profile = ScanProfile.Migration, CancellationToken = CancellationToken.None, Target = ScanTarget.Local(TargetPlatform.Windows) },
             CancellationToken.None);
         var cliPipelineResult = cliPipelineRunner.Analyze(cliDiscovery, CancellationToken.None);
-        var cliBundle = ReportArtifactFactory.CreateBundle(cliPipelineResult.Report);
+        var cliBundle = ReportArtifactFactory.CreateBundle(cliPipelineResult);
 
         // GUI side: the real GuiScanExecutor, fakes swapped in only at the transport/discovery-engine seam.
         var guiDiscoveryEngine = new FakeDiscoveryEngine(fixture);

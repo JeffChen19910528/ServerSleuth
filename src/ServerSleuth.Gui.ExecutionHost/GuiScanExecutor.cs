@@ -110,7 +110,7 @@ public sealed class GuiScanExecutor : IGuiScanExecutor
             }));
 
             progress.Report(new ScanProgressState { Stage = ScanStage.Export, ScannerStatuses = scannerStatuses, EntityCount = discovery.Entities.Count });
-            var exportOutcome = ExportReport(pipelineResult.Report, request);
+            var exportOutcome = ExportReport(pipelineResult, request);
 
             if (!exportOutcome.Success)
             {
@@ -180,6 +180,6 @@ public sealed class GuiScanExecutor : IGuiScanExecutor
     /// policy from a <see cref="ScanRequest"/> specifically — everything after that is one shared
     /// implementation, never two.</summary>
     private static GuiScanExportOutcome ExportReport(
-        ServerSleuth.Analysis.Migration.Consolidation.ServerMigrationAssessmentReport report, ScanRequest request) =>
-        GuiReportExportService.ExportReport(report, request.OutputDirectory, request.OutputFormat, request.OverwritePolicy);
+        ServerSleuth.Analysis.Orchestration.ScanPipelineResult pipeline, ScanRequest request) =>
+        GuiReportExportService.ExportReport(pipeline, request.OutputDirectory, request.OutputFormat, request.OverwritePolicy);
 }

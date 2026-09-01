@@ -61,10 +61,15 @@
                     </StackPanel>
                 </Border>
 
-                <!-- DISCOVERY -->
+                <!-- INVENTORY (GUI-8A) — primary focus; replaces the old "Discovery" summary card.
+                     Per-type counts are read from Discovery.Entities by C# class so they reflect
+                     actual scanner output without relying on Type-string conventions. Plain
+                     TextBlock.Text bindings only — same rule as the Last Scan card above. -->
                 <Border Style="{StaticResource Dashboard.Card}">
                     <StackPanel>
-                        <TextBlock Text="{DynamicResource Overview.Discovery}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Overview.Inventory}" Style="{StaticResource Dashboard.SectionTitle}" />
+
+                        <!-- Totals row: total entities, application boundaries, dependencies -->
                         <WrapPanel>
                             <StackPanel Margin="0,0,32,0">
                                 <TextBlock Text="{DynamicResource Overview.EntitiesLabel}" Style="{StaticResource Text.Muted}" />
@@ -77,6 +82,50 @@
                             <StackPanel Margin="0,0,32,0">
                                 <TextBlock Text="{DynamicResource Overview.DependenciesLabel}" Style="{StaticResource Text.Muted}" />
                                 <TextBlock Text="{Binding DependencyCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <!-- Per-type breakdown: one stat per discovered entity class -->
+                        <WrapPanel Margin="0,10,0,0">
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.Applications}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ApplicationEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.DllBinaries}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding DllEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.Services}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ServiceEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.ComComponents}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ComComponentEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.InstalledSoftware}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding SoftwareEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.Runtime}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding RuntimeEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.ScheduledTasks}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ScheduledTaskEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.Certificates}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding CertificateEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.Configuration}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ConfigurationEntityCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,20,6">
+                                <TextBlock Text="{DynamicResource Overview.Inv.ExternalConnections}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ExternalConnectionCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" />
                             </StackPanel>
                         </WrapPanel>
                     </StackPanel>

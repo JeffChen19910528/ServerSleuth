@@ -24,10 +24,12 @@ namespace ServerSleuth.Gui.ViewModels.Results;
 /// </summary>
 public sealed class ApplicationDetailViewModel
 {
-    public ApplicationDetailViewModel(ApplicationMigrationSummary migration, ApplicationRiskSummary? risk)
+    public ApplicationDetailViewModel(ApplicationMigrationSummary migration, ApplicationRiskSummary? risk,
+        ApplicationComponentsViewModel? components = null)
     {
         Migration = migration;
         Risk = risk;
+        Components = components ?? new ApplicationComponentsViewModel([], []);
     }
 
     /// <summary>Phase 8C's own consolidated per-application view — never re-derived.</summary>
@@ -38,6 +40,11 @@ public sealed class ApplicationDetailViewModel
     /// findings never gets one) — the panel must still render the migration side in that case,
     /// per GUI-4 §19's "no application findings" empty-state requirement.</summary>
     public ApplicationRiskSummary? Risk { get; }
+
+    /// <summary>GUI-8B: entity components discovered for this application through its boundary
+    /// membership — what exists on the current server that must be prepared on the target.
+    /// Never null; defaults to an empty components set when no pipeline data is available.</summary>
+    public ApplicationComponentsViewModel Components { get; }
 
     // ----- IDENTITY -----
     public string ApplicationName => Migration.Assessment.ApplicationBoundaryName;

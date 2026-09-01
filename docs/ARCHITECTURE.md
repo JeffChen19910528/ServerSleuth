@@ -2053,6 +2053,50 @@ remote acceptance performed (no authorized live host available, unchanged since 
 11C); intermittent `WaitUntilAsync`/`Task.Run` cold-start test flakiness persists in this specific
 sandbox, pre-existing and environmental, not a release blocker.
 
+## Phase GUI-8A Addendum — Inventory-first Dashboard (as built)
+
+**Goal:** Make the Dashboard's primary content the per-type inventory breakdown drawn from real
+discovered data — entities counted by C# class from `ScanPipelineResult.Discovery.Entities`
+(so variance in `Type` strings across scanners, e.g. `NativeBinary` vs `Dll`, or runtime family
+names vs the literal string `"Runtime"`, lands in the correct bucket automatically).
+
+**What changed:**
+
+- `DashboardOverviewViewModel` gained 10 new read-only properties (all computed once in the
+  constructor, never recomputed): `ApplicationEntityCount`, `DllEntityCount`,
+  `ServiceEntityCount`, `ComComponentEntityCount`, `SoftwareEntityCount`,
+  `RuntimeEntityCount`, `ScheduledTaskEntityCount`, `CertificateEntityCount`,
+  `ConfigurationEntityCount` (all from `Discovery.Entities.OfType<T>().Count()`), and
+  `ExternalConnectionCount` (from `pipeline.ExternalDependencies.Count`). The existing
+  `ApplicationCount`/`DependencyCount` from `Report.ServerSummary` (application-boundary
+  and dependency counts from the Analysis layer) are unchanged and still shown as totals.
+
+- `DashboardView.xaml`'s "Discovery" card was renamed to "Inventory" (new resource key
+  `Overview.Inventory`) and extended with a per-type `WrapPanel` row below the existing
+  totals row, showing all 10 categories with plain `TextBlock.Text` bindings — same
+  safety rule as the rest of the card (no `Run`-hosted bindings on a freshly-rebuilt VM).
+  The Risk and Migration cards remain below the Inventory card in unchanged form.
+
+- `LocalizedStrings.cs` gained 11 new `Overview.Inventory`/`Overview.Inv.*` keys (both
+  English and Traditional Chinese).
+
+- `test/ServerSleuth.Gui.Tests/ViewModels/DashboardInventoryCountsTests.cs` (15 new tests):
+  zero counts with no scan, individual type coverage per class, mixed-entity scenario,
+  ExternalConnections via `ExternalDependencies`, determinism, empty-discovery completed scan,
+  and independence from Risk/Migration summaries.
+
+- `ServerSleuth.Gui.RealWindowHarness/Program.cs`: the completed-scan fixture now includes
+  one entity of each of the 9 Discovery entity classes (Application, Dll, Service,
+  ComComponent, Software, Runtime, ScheduledTask, Certificate, Configuration), exercising
+  all new binding paths with non-zero values against a real layout pass.
+
+**What was not changed:** No scanner, `IDiscoveryScanner`, `DiscoveryEngine`,
+`ApplicationBoundaryEngine`, `DependencyExpansionEngine`, Risk rule, Migration engine, or
+Reporting component was touched. `ServerSleuth.Gui`'s assembly-reference boundary is
+unchanged. No new NuGet package. No chart library. No filter/navigation change.
+`DashboardInventoryCountsTests` count by C# class only, never by `Type` string — immune to
+scanner vocabulary variance by construction.
+
 ## Decisions Log
 
 | Decision | Rationale | Date |

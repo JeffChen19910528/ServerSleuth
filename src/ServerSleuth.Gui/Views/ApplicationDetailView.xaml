@@ -4,16 +4,246 @@
              xmlns:migModels="clr-namespace:ServerSleuth.Analysis.Migration.Models;assembly=ServerSleuth.Analysis"
              xmlns:migActions="clr-namespace:ServerSleuth.Analysis.Migration.Actions;assembly=ServerSleuth.Analysis"
              xmlns:migVerify="clr-namespace:ServerSleuth.Analysis.Migration.Verification;assembly=ServerSleuth.Analysis"
-             xmlns:riskModels="clr-namespace:ServerSleuth.Analysis.Risk.Models;assembly=ServerSleuth.Analysis">
+             xmlns:riskModels="clr-namespace:ServerSleuth.Analysis.Risk.Models;assembly=ServerSleuth.Analysis"
+             xmlns:coreModels="clr-namespace:ServerSleuth.Core.Models;assembly=ServerSleuth.Core"
+             xmlns:guiResults="clr-namespace:ServerSleuth.Gui.ViewModels.Results">
 
     <!-- GUI-4 §Step7: the reusable Application Detail panel. Every value bound here comes
          straight off ApplicationDetailViewModel's own thin, one-way properties — no calculation,
-         no Execute/Run affordance anywhere (skill.md GUI-4 §7, §10, §11). -->
+         no Execute/Run affordance anywhere (skill.md GUI-4 §7, §10, §11).
+         GUI-8B: Application Components section added above Risk/Migration — answers "what exists?"
+         before "what risks exist?". Bound to Components.* which is always non-null. -->
     <Border Style="{StaticResource Dashboard.Card}">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="520">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="700">
             <StackPanel>
                 <TextBlock Text="{Binding ApplicationName}" Style="{StaticResource Text.PageTitle}" />
                 <TextBlock Style="{StaticResource Text.Muted}" Text="{Binding ApplicationBoundaryId}" />
+
+                <!-- ═══ GUI-8B: APPLICATION COMPONENTS (What exists?) ═══ -->
+                <TextBlock Text="{DynamicResource AppDetail.Components}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,4" />
+
+                <!-- No components at all -->
+                <TextBlock Text="{DynamicResource AppDetail.NoComponents}" Style="{StaticResource Text.Muted}"
+                           Visibility="{Binding Components.HasAnyComponents, Converter={StaticResource InverseBoolToVisibility}}" />
+
+                <!-- DLL / Binary -->
+                <StackPanel Visibility="{Binding Components.HasDllBinaries, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.DllBinaries}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.DllBinaries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:Dll}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Version, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Architecture, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Path, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Runtime Requirements -->
+                <StackPanel Visibility="{Binding Components.HasRuntimes, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.Runtimes}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.Runtimes}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:Runtime}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Version, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Architecture, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Windows Services -->
+                <StackPanel Visibility="{Binding Components.HasServices, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.Services}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.Services}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:Service}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding DisplayName, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text=" [" /><Run Text="{Binding StartType, Mode=OneWay}" /><Run Text="]" />
+                                    <Run Text="{Binding ServiceAccount, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- COM Components -->
+                <StackPanel Visibility="{Binding Components.HasComComponents, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.ComComponents}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.ComComponents}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:ComComponent}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text=" CLSID:" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Clsid, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding ProgId, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding ThreadingModel, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Configuration -->
+                <StackPanel Visibility="{Binding Components.HasConfigurations, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.Configurations}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.Configurations}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type guiResults:ConfigurationComponentRow}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Format, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Status, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Path, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Certificates -->
+                <StackPanel Visibility="{Binding Components.HasCertificates, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.Certificates}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.Certificates}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:Certificate}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Subject, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text=" — " Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Issuer, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text=" Valid To:" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding ValidTo, Mode=OneWay, StringFormat=\{0:yyyy-MM-dd\}}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Scheduled Tasks -->
+                <StackPanel Visibility="{Binding Components.HasScheduledTasks, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.ScheduledTasks}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.ScheduledTasks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:ScheduledTask}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Folder, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Trigger, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding RunAsAccount, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- Installed Software -->
+                <StackPanel Visibility="{Binding Components.HasSoftware, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.Software}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.Software}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:Software}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Name, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text="{Binding Version, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                    <Run Text="{Binding Publisher, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- External Connections -->
+                <StackPanel Visibility="{Binding Components.HasExternalConnections, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.ExternalConnections}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,8,0,2" />
+                    <ItemsControl ItemsSource="{Binding Components.ExternalConnections}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type coreModels:ExternalDependency}">
+                                <TextBlock Style="{StaticResource Text.Body}" Margin="8,1,0,1" TextWrapping="Wrap">
+                                    <Run Text="{Binding Kind, Mode=OneWay}" FontWeight="SemiBold" />
+                                    <Run Text=" — " />
+                                    <Run Text="{Binding Endpoint, Mode=OneWay}" />
+                                    <Run Text="{Binding Name, Mode=OneWay}" Foreground="{StaticResource App.MutedForeground}" />
+                                </TextBlock>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- ═══ GUI-8B: MIGRATION PREPARATION SUMMARY (What must I prepare?) ═══ -->
+                <StackPanel Visibility="{Binding Components.HasAnyComponents, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource AppDetail.MigrationPrep}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,4" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="48" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <!-- DLL / Binary -->
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource AppDetail.DllBinaries}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.DllBinaryCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Components.DllBinaryCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.DllBinaryCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Runtime -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource AppDetail.Runtimes}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.RuntimeCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Components.RuntimeCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.RuntimeCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Services -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource AppDetail.Services}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.ServiceCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Components.ServiceCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.ServiceCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- COM -->
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource AppDetail.ComComponents}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.ComComponentCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Components.ComComponentCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.ComComponentCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Configuration -->
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource AppDetail.Configurations}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.ConfigurationCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Components.ConfigurationCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.ConfigurationCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Certificates -->
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="{DynamicResource AppDetail.Certificates}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.CertificateCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding Components.CertificateCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.CertificateCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Scheduled Tasks -->
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="{DynamicResource AppDetail.ScheduledTasks}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.ScheduledTaskCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Components.ScheduledTaskCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.ScheduledTaskCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- Software -->
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="{DynamicResource AppDetail.Software}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.SoftwareCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding Components.SoftwareCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.SoftwareCount, Converter={StaticResource CountToVisibility}}" />
+                        <!-- External Connections -->
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="{DynamicResource AppDetail.ExternalConnections}" Style="{StaticResource Text.Body}"
+                                   Visibility="{Binding Components.ExternalConnectionCount, Converter={StaticResource CountToVisibility}}" />
+                        <TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding Components.ExternalConnectionCount, Mode=OneWay}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" HorizontalAlignment="Right"
+                                   Visibility="{Binding Components.ExternalConnectionCount, Converter={StaticResource CountToVisibility}}" />
+                    </Grid>
+                </StackPanel>
 
                 <!-- IDENTITY / RISK -->
                 <TextBlock Text="{DynamicResource AppDetail.Risk}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />

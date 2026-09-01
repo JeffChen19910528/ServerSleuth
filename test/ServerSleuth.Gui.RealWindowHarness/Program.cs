@@ -126,17 +126,71 @@ static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> 
     var applicationState = new ApplicationStateService();
     var languageService = new LanguageService();
     var scanConfiguration = new ScanConfigurationViewModel(new ScanConfigurationValidator(), new ScanRequestFactory());
-    // A real DiscoveryEntity, not the factory's own null/empty default — otherwise the standalone
-    // Inventory page (and its category-chip/item-selection bindings, exercised below) would have
-    // nothing to actually render, exactly the gap that let InventoryExplorerView.xaml's own
-    // Run-hosted bindings go untested against a real fresh-rebuild-plus-selection scenario.
-    var discoveryEntity = new ServerSleuth.Core.Models.Service
+    // GUI-8A: one entity of every type the Dashboard Inventory section counts — the real
+    // InventoryExplorerView (exercised below) also renders them, so a crash in either binding
+    // path is surfaced here. Using one of each class rather than one Type string ensures the
+    // OfType<T>-based count properties bind to non-zero values, making the bindings actually
+    // exercised rather than silently rendering "0" without touching the property path.
+    var discoveryEntities = new ServerSleuth.Core.Models.DiscoveryEntity[]
     {
-        Id = "service:harness", Name = "HarnessService", Type = "Service", Source = "ServiceControlManager",
-        Status = ServerSleuth.Core.Enums.EntityStatus.Running, Confidence = ServerSleuth.Core.Evidence.Confidence.VeryHigh()
+        new ServerSleuth.Core.Models.Application
+        {
+            Id = "app:harness", Name = "HarnessApp", Type = "Application", Source = "IIS"
+        },
+        new ServerSleuth.Core.Models.Dll
+        {
+            Id = "dll:harness", Name = "harness.dll", Type = "NativeBinary", Source = "FileSystem"
+        },
+        new ServerSleuth.Core.Models.Service
+        {
+            Id = "service:harness", Name = "HarnessService", Type = "Service", Source = "ServiceControlManager",
+            Status = ServerSleuth.Core.Enums.EntityStatus.Running, Confidence = ServerSleuth.Core.Evidence.Confidence.VeryHigh()
+        },
+        new ServerSleuth.Core.Models.ComComponent
+        {
+            Id = "com:harness", Name = "HarnessCom", Type = "ComComponent", Source = "Registry",
+            Clsid = "{00000000-0000-0000-0000-000000000001}"
+        },
+        new ServerSleuth.Core.Models.Software
+        {
+            Id = "sw:harness", Name = "HarnessSoftware", Type = "Software", Source = "Registry"
+        },
+        new ServerSleuth.Core.Models.Runtime
+        {
+            Id = "rt:harness", Name = ".NET 8.0", Type = "DotNetRuntime", Source = "Command"
+        },
+        new ServerSleuth.Core.Models.ScheduledTask
+        {
+            Id = "task:harness", Name = "HarnessTask", Type = "ScheduledTask", Source = "TaskScheduler"
+        },
+        new ServerSleuth.Core.Models.Certificate
+        {
+            Id = "cert:harness", Name = "harness.local", Type = "Certificate", Source = "CertStore"
+        },
+        new ServerSleuth.Core.Models.Configuration
+        {
+            Id = "cfg:harness", Name = "appsettings.json", Type = "Configuration", Source = "FileSystem"
+        },
+    };
+    // GUI-8B: bind the discovery entities to the fixture's first application boundary so the
+    // ApplicationComponents section is exercised with real entity data (not just the empty-state
+    // "No components discovered" path). The fixture creates boundaries named "boundary-00000",
+    // "boundary-00001", … matching ApplicationCount; we anchor all harness entities into the first
+    // so that selecting "Application 00000" in the Migration view shows a populated Components panel.
+    var harnessComponentsBoundary = new ServerSleuth.Core.Boundaries.ApplicationBoundary
+    {
+        Id = "boundary-00000",
+        Name = "Application 00000",
+        MemberEntityIds = discoveryEntities.Select(e => e.Id).ToList(),
+        Confidence = ServerSleuth.Core.Evidence.Confidence.High(),
+        Reason = "GUI-8B harness: all discovery entities attributed to the first fixture application"
     };
     var completedState = ScanResultFixtureFactory.BuildCompletedState(
-        new ScanResultFixtureFactory.Options { DiscoveryEntities = [discoveryEntity] });
+        new ScanResultFixtureFactory.Options
+        {
+            DiscoveryEntities = discoveryEntities,
+            Boundaries = [harnessComponentsBoundary]
+        });
     var executor = new HarnessFakeScanExecutor
     {
         CompletionToReturn = new ScanCompletionState
@@ -194,6 +248,15 @@ static void RunResultsDashboardScenario(List<string> failures, Func<Exception?> 
         window.UpdateLayout();
         PumpDispatcherOnce();
     }
+
+    // GUI-8A: navigate to the Dashboard page with the real completed scan so the per-type
+    // inventory count bindings (ApplicationEntityCount, DllEntityCount, …) are attached and
+    // exercised — the generic RunScenario walk above navigates every page too, but with no
+    // completed scan, so all inventory counts stay zero and the WrapPanel items still render;
+    // this scenario exercises them with non-zero values against real binding attachment.
+    mainViewModel.NavigateCommand.Execute(NavigationPage.Dashboard);
+    window.UpdateLayout();
+    PumpDispatcherOnce();
 
     // GUI-7B/7C: also exercise the standalone Inventory page (select the first item, so
     // InventoryDetailView's binding actually attaches too), Migration (select the first

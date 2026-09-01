@@ -978,6 +978,24 @@
 - Interactive/visual GUI validation was **not performed** — no interactive desktop session available in this environment, same disclosed constraint as every prior GUI phase.
 - **This is the final GUI phase.** GUI-8 and later were not started. Final Release Status: **RELEASE READY** (see `docs/releases/FINAL_RELEASE_SIGNOFF.md`).
 
+## Unreleased (Phase GUI-8A — Inventory-first Dashboard)
+
+### Changed
+- `DashboardOverviewViewModel` (`src/ServerSleuth.Gui/ViewModels/DashboardOverviewViewModel.cs`): added 10 new read-only inventory count properties — `ApplicationEntityCount`, `DllEntityCount`, `ServiceEntityCount`, `ComComponentEntityCount`, `SoftwareEntityCount`, `RuntimeEntityCount`, `ScheduledTaskEntityCount`, `CertificateEntityCount`, `ConfigurationEntityCount` (each computed once in the constructor via `Discovery.Entities.OfType<T>().Count()` against the same `ScanPipelineResult` the rest of the Dashboard already reads), plus `ExternalConnectionCount` (`pipeline.ExternalDependencies.Count`). Existing properties are unchanged.
+- `DashboardView.xaml` (`src/ServerSleuth.Gui/Views/DashboardView.xaml`): the "Discovery" card was renamed to "Inventory" (using new `Overview.Inventory` resource key) and extended with a second `WrapPanel` row below the existing totals row, showing all 10 per-type counts as plain `TextBlock.Text` bindings (same binding-safety rule as the rest of the card). Risk and Migration cards remain unchanged and stay below the Inventory card.
+- `LocalizedStrings.cs` (`src/ServerSleuth.Gui/Resources/LocalizedStrings.cs`): 11 new `Overview.Inventory`/`Overview.Inv.*` keys (English + Traditional Chinese).
+- `ServerSleuth.Gui.RealWindowHarness/Program.cs`: the completed-scan fixture was extended to include one entity of each of the 9 `DiscoveryEntity` subclasses (Application, Dll, Service, ComComponent, Software, Runtime, ScheduledTask, Certificate, Configuration) so all new Dashboard inventory binding paths are exercised with non-zero values during the real WPF layout pass.
+
+### Added
+- `test/ServerSleuth.Gui.Tests/ViewModels/DashboardInventoryCountsTests.cs` (15 new tests): zero counts with no scan; each of the 10 categories counted individually; mixed-entity scenario asserting all 10 counts simultaneously; ExternalConnections read from `ExternalDependencies`; deterministic (same state → same counts); empty-discovery completed scan; independence from Risk/Migration summaries.
+
+### Notes
+- No scanner, `IDiscoveryScanner`, `DiscoveryEngine`, `ApplicationBoundaryEngine`, `DependencyExpansionEngine`, Risk rule, Migration engine, or Reporting component was modified. `ServerSleuth.Gui`'s assembly-reference boundary unchanged (still only `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost`). No new NuGet package.
+- Counts are by C# class (`OfType<T>`) rather than by `Type` string — immune to scanner vocabulary variance by construction (e.g. `Dll` entities produced by `LinuxNativeDependencyScanner` with `Type = "NativeBinary"` still count correctly as `DllEntityCount`; `Runtime` entities with `Type = family` still count as `RuntimeEntityCount`).
+- Pre-existing flaky tests: `ScanExecutionViewModelTests` / `MainViewModelResultsNavigationTests` / `MainViewModelMigrationReportsSettingsNavigationTests` / `MainViewModelDashboardAndInventoryNavigationTests` all share the same `WaitUntilAsync`/cold-start timing sensitivity documented since GUI-6A — identical fail-then-immediately-pass pattern on rerun, zero relation to this phase's changes, confirmed by isolating and running them alone.
+- Full regression: `ServerSleuth.Gui.Tests` 385 total (370 pre-existing + 15 new), 380 pass consistently, 5 fail intermittently (all pre-existing flaky). All non-GUI test projects pass 100% (no production changes outside `ServerSleuth.Gui`). `RealWindowHarness` exits 0 across all four scenarios (with/without language switch × with/without completed scan). `RealWindowRuntimeConfigTests` (harness-as-subprocess) passes. 0 build warnings/errors.
+- GUI-8B, GUI-8C, and HTML report restructuring were not started, per the strict-stop instruction.
+
 ## Unreleased (Release Build Pipeline Audit — post-GUI-7C)
 
 ### Notes

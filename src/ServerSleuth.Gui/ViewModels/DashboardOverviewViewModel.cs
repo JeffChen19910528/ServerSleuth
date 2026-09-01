@@ -1,4 +1,5 @@
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Core.Models;
 using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
@@ -41,6 +42,24 @@ public sealed class DashboardOverviewViewModel : ObservableObject, IPageViewMode
         ReadyWithConditionsApplicationCount = Report?.ServerSummary.ReadyWithConditionsApplicationCount ?? 0;
         ReadyApplicationCount = Report?.ServerSummary.ReadyApplicationCount ?? 0;
 
+        // GUI-8A: per-type inventory counts from the same Discovery.Entities the Inventory
+        // Explorer already reads — counted by C# class so they are immune to Type-string
+        // conventions varying across scanners (e.g. Runtime family names, NativeBinary vs Dll).
+        var entities = pipeline?.Discovery.Entities ?? [];
+        ApplicationEntityCount = entities.OfType<Application>().Count();
+        DllEntityCount          = entities.OfType<Dll>().Count();
+        ServiceEntityCount      = entities.OfType<Service>().Count();
+        ComComponentEntityCount = entities.OfType<ComComponent>().Count();
+        SoftwareEntityCount     = entities.OfType<Software>().Count();
+        RuntimeEntityCount      = entities.OfType<Runtime>().Count();
+        ScheduledTaskEntityCount = entities.OfType<ScheduledTask>().Count();
+        CertificateEntityCount  = entities.OfType<Certificate>().Count();
+        ConfigurationEntityCount = entities.OfType<Configuration>().Count();
+        // ExternalDependencies come from DependencyExpansionEngine (Analysis layer), not raw
+        // scanners — carried separately on ScanPipelineResult alongside Discovery.Entities, and
+        // combined with them in InventoryExplorerViewModel the same way.
+        ExternalConnectionCount = pipeline?.ExternalDependencies.Count ?? 0;
+
         // "Start Scan" (no scan yet) and "New Scan" (a completed one already exists) are the
         // SAME action — both route MainViewModel back to Scan Configuration, exactly like
         // ResultsDashboardViewModel.NewScanCommand/ScanExecutionViewModel.NewScanCommand already
@@ -80,11 +99,25 @@ public sealed class DashboardOverviewViewModel : ObservableObject, IPageViewMode
     public string TargetDisplayName => State.TargetDisplayName;
     public TargetPlatform TargetPlatform => State.TargetPlatform;
 
-    // ----- DISCOVERY ----- (EntityCount is the SAME field ScanSummary already shows — never a
-    // second count recomputed from Discovery.Entities here.)
+    // ----- DISCOVERY TOTALS ----- (EntityCount is the SAME field ScanSummary already shows —
+    // never a second count recomputed from Discovery.Entities here.)
     public int EntityCount => State.EntityCount;
     public int ApplicationCount { get; }
     public int DependencyCount { get; }
+
+    // ----- INVENTORY (GUI-8A) — per entity class from Discovery.Entities + ExternalDependencies;
+    // counted by C# class (not by Type string) so runtime-family variance and Linux "NativeBinary"
+    // type both land in the right bucket automatically. Zero when no scan has completed. -----
+    public int ApplicationEntityCount { get; }
+    public int DllEntityCount { get; }
+    public int ServiceEntityCount { get; }
+    public int ComComponentEntityCount { get; }
+    public int SoftwareEntityCount { get; }
+    public int RuntimeEntityCount { get; }
+    public int ScheduledTaskEntityCount { get; }
+    public int CertificateEntityCount { get; }
+    public int ConfigurationEntityCount { get; }
+    public int ExternalConnectionCount { get; }
 
     // ----- RISK ----- (only Critical/High/Medium — skill.md's own "concise summary" request;
     // the full Critical/High/Medium/Low/Info/Informational breakdown already exists on Results.)

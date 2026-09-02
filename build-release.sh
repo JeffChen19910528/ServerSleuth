@@ -46,7 +46,17 @@ echo "  CLI project: $CLI_PROJECT"
 
 # Read the version straight out of Directory.Build.props — the same single source of
 # truth build-release.ps1 reads, never a second hard-coded copy.
-VERSION="$(grep -o '<Version>[^<]*</Version>' "$BUILD_PROPS" | head -n1 | sed -e 's/<Version>//' -e 's/<\/Version>//')"
+#
+# Anchored to "only whitespace before the tag" (^[[:space:]]*<Version>...) rather than a bare
+# '<Version>[^<]*</Version>' grep anywhere in the file: this file's own top-of-file comment block
+# documents the OLD, inconsistent per-csproj version it replaced using the literal example text
+# "<Version>10.0.0</Version>" — a bare grep matches that prose example first (grep -o lists
+# matches in file order, and the comment precedes the real <PropertyGroup>), silently producing a
+# release tagged "10.0.0" instead of "1.0.0" (reproduced while hardening this script). The real
+# property element is alone on its own line with only leading whitespace; the comment's example
+# is embedded mid-sentence, so anchoring to line-start-then-tag disambiguates them correctly
+# without needing multi-line XML-comment stripping.
+VERSION="$(grep -oE '^[[:space:]]*<Version>[^<]*</Version>' "$BUILD_PROPS" | head -n1 | sed -e 's/^[[:space:]]*<Version>//' -e 's/<\/Version>//')"
 [ -n "$VERSION" ] || fail "Could not read <Version> from Directory.Build.props."
 echo "  Release version: $VERSION"
 
@@ -86,6 +96,30 @@ chmod +x "$LINUX_OUT_DIR/serversleuth"
 LINUX_EXE="$LINUX_OUT_DIR/serversleuth"
 
 [ -s "$LINUX_EXE" ] || fail "Linux artifact is empty: $LINUX_EXE"
+
+step "Verifying published executable version"
+
+# This script can run on any POSIX host capable of cross-publishing -r linux-x64 (Linux x64,
+# Linux ARM64, macOS Intel/Apple Silicon, ...), but a genuine linux-x64 ELF binary can only be
+# EXECUTED directly on a real Linux x64 host — attempting it elsewhere fails with a kernel
+# "Exec format error", not a build defect (reproduced while hardening this script, on a Windows/
+# Git-Bash host masquerading as POSIX). So this check only runs where `uname` confirms Linux x64;
+# everywhere else it is skipped with an explicit message rather than failing the whole release
+# build over a check that was never going to be able to run — the "document the limitation
+# rather than create fragile logic" approach.
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
+    # VersionInfo.cs reports the 4-part AssemblyVersion (e.g. "1.0.0.0"), not the 3-part
+    # <Version>, so a prefix match against $VERSION is the correct comparison here — not exact
+    # equality (a legitimate .NET convention: .NET always pads AssemblyVersion to four numeric
+    # parts, this is not a defect to "fix" in this script).
+    LINUX_VERSION_OUTPUT="$("$LINUX_EXE" --version)"
+    if [ "$LINUX_VERSION_OUTPUT" != "$VERSION" ] && [[ "$LINUX_VERSION_OUTPUT" != "$VERSION".* ]]; then
+        fail "Linux CLI '--version' output '$LINUX_VERSION_OUTPUT' is not consistent with Directory.Build.props Version '$VERSION'."
+    fi
+    echo "  ./serversleuth --version: $LINUX_VERSION_OUTPUT (consistent with $VERSION)"
+else
+    echo "  Skipped: this host ($(uname -s) $(uname -m)) cannot execute a linux-x64 binary directly."
+fi
 
 step "Writing VERSION and README.txt"
 
@@ -154,6 +188,30 @@ fi
     echo "$LINUX_TAR_HASH  $LINUX_TAR_NAME"
 } >> "$CHECKSUM_FILE"
 echo "  Written: $CHECKSUM_FILE"
+
+step "Verifying SHA-256 checksums"
+
+# Recomputes each hash independently (never trusts $LINUX_EXE_HASH/$LINUX_TAR_HASH above) and
+# compares against what was just written to disk. Scoped to only this script's own two entries
+# (via the same grep pattern used to remove/replace them above) — the Windows lines in
+# SHA256SUMS.txt (if present, from a prior Windows build) are never touched or re-verified here,
+# matching this script's existing "only ever update the Linux lines" contract.
+if ! (cd "$RELEASE_ROOT" && grep -E '^[0-9a-f]+  (linux/serversleuth|ServerSleuth-v[^ ]*-linux-x64\.tar\.gz)$' SHA256SUMS.txt | sha256sum -c -); then
+    fail "SHA-256 checksum verification failed for one or more Linux release artifacts."
+fi
+echo "  All Linux checksums verified."
+
+step "Verifying version consistency across release artifacts"
+
+# Guaranteed by construction (every value below is interpolated from the same $VERSION variable)
+# — this step exists so a future edit that breaks that guarantee fails the build immediately
+# instead of silently publishing inconsistent artifacts, mirroring build-release.ps1's own
+# equivalent step.
+WRITTEN_VERSION="$(cat "$RELEASE_ROOT/VERSION")"
+[ "$WRITTEN_VERSION" = "$VERSION" ] || fail "release/VERSION contains '$WRITTEN_VERSION', expected '$VERSION'."
+[[ "$LINUX_TAR_NAME" == *"v$VERSION"* ]] || fail "Linux archive filename '$LINUX_TAR_NAME' does not contain version '$VERSION'."
+grep -q "v$VERSION" "$LINUX_OUT_DIR/README.txt" || fail "$LINUX_OUT_DIR/README.txt does not mention version '$VERSION'."
+echo "  VERSION, archive filename, and README.txt all agree on $VERSION."
 
 step "Release build complete — v$VERSION"
 echo "  $LINUX_EXE"

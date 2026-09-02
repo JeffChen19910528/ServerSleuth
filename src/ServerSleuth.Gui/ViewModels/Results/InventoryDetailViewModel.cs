@@ -34,6 +34,22 @@ public sealed class InventoryDetailViewModel
         Metadata = entity.Metadata;
         Tags = entity.Tags;
         AffectedApplications = affectedApplications;
+
+        // GUI-10 §8: ScheduledTask's own typed fields (Folder/Trigger/Action/RunAsAccount/
+        // Enabled/NextRun) were previously invisible in this panel — only base DiscoveryEntity
+        // fields and Metadata rendered, and WindowsScheduledTaskScanner/LinuxScheduledTaskScanner
+        // never put these specific fields into Metadata (they are typed properties on
+        // ScheduledTask itself). This is a presentation-only projection of already-discovered
+        // data — no scanner was touched, nothing is recomputed.
+        if (entity is ScheduledTask task)
+        {
+            ScheduledTaskFolder = task.Folder;
+            ScheduledTaskTrigger = task.Trigger;
+            ScheduledTaskAction = task.Action;
+            ScheduledTaskRunAsAccount = task.RunAsAccount;
+            ScheduledTaskEnabled = task.Enabled;
+            ScheduledTaskNextRun = task.NextRun;
+        }
     }
 
     public string Id { get; }
@@ -62,4 +78,16 @@ public sealed class InventoryDetailViewModel
     public bool HasApplicationAttribution => AffectedApplications.Count > 0;
 
     public bool IsSharedAcrossApplications => AffectedApplications.Count > 1;
+
+    // ----- GUI-10 §8: ScheduledTask-specific fields — null for every other entity type, never
+    // fabricated (the constructor only sets these when the wrapped entity actually is a
+    // ScheduledTask). -----
+    public string? ScheduledTaskFolder { get; }
+    public string? ScheduledTaskTrigger { get; }
+    public string? ScheduledTaskAction { get; }
+    public string? ScheduledTaskRunAsAccount { get; }
+    public bool? ScheduledTaskEnabled { get; }
+    public DateTimeOffset? ScheduledTaskNextRun { get; }
+
+    public bool IsScheduledTask => ScheduledTaskEnabled.HasValue;
 }

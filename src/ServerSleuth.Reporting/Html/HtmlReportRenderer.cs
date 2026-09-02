@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Analysis.Migration.Preparation;
 using ServerSleuth.Core.Boundaries;
 using ServerSleuth.Core.Models;
 using ServerSleuth.Core.Orchestration;
@@ -195,27 +196,33 @@ public sealed class HtmlReportRenderer : IReportRenderer
     }
 
     /// <summary>
-    /// GUI-8C §12 — a dedicated "Migration Checklist" section summarizing what must be prepared
-    /// per discovered category, using only the presentation-level action vocabulary (Copy,
-    /// Install, Create, Register, Configure, Verify, Review — §五). This is a summary of the
-    /// per-item inventory tables above; it performs no calculation and fabricates nothing —
-    /// counts are the same <see cref="InventoryEntityDto"/> lists already rendered. A category
-    /// with zero discovered items is omitted entirely (§四: never fabricate an item for an
-    /// absent category).
+    /// GUI-8C §12, vocabulary centralized by GUI-9B §4 — a dedicated "Migration Checklist"
+    /// section summarizing what must be prepared per discovered category. The action text for
+    /// each row now comes from <see cref="MigrationIntentCatalog"/> (the single source of truth
+    /// for category → <see cref="MigrationIntent"/>, keyed by the same
+    /// <see cref="InventoryEntityDto.EntityType"/> strings <see cref="ReportDtoMapper"/> assigns)
+    /// instead of a locally hard-coded string per category — this is a behavior-preserving
+    /// refactor of where the vocabulary lives, not a report redesign (skill.md GUI-9B §4, §16).
+    /// This is a summary of the per-item inventory tables above; it performs no calculation and
+    /// fabricates nothing — counts are the same <see cref="InventoryEntityDto"/> lists already
+    /// rendered. A category with zero discovered items is omitted entirely (§四: never fabricate
+    /// an item for an absent category).
     /// </summary>
     private static void AppendMigrationChecklist(StringBuilder sb, ServerReportDto dto)
     {
+        static string Action(string category) => string.Join(" / ", MigrationIntentCatalog.IntentsFor(category));
+
         var rows = new (string Category, int Count, string Action)[]
         {
-            ("Application Components (DLL / Binary)", dto.DllBinaries.Count, "Copy"),
-            ("Runtime Requirements", dto.Runtimes.Count, "Install / Verify"),
-            ("Windows Services", dto.Services.Count, "Create / Configure / Verify"),
-            ("COM Components", dto.ComComponents.Count, "Register / Verify"),
-            ("Installed Software", dto.Software.Count, "Install / Review / Verify"),
-            ("Scheduled Tasks", dto.ScheduledTasks.Count, "Create / Configure / Verify"),
-            ("Certificates", dto.Certificates.Count, "Install / Verify"),
-            ("Configuration", dto.Configurations.Count, "Configure / Verify"),
-            ("External Connections", dto.ExternalConnections.Count, "Verify / Review"),
+            ("Application Components (DLL / Binary)", dto.DllBinaries.Count, Action("Dll")),
+            ("Runtime Requirements", dto.Runtimes.Count, Action("Runtime")),
+            ("Windows Services", dto.Services.Count, Action("Service")),
+            ("COM Components", dto.ComComponents.Count, Action("ComComponent")),
+            ("Installed Software", dto.Software.Count, Action("Software")),
+            ("Scheduled Tasks", dto.ScheduledTasks.Count, Action("ScheduledTask")),
+            ("Certificates", dto.Certificates.Count, Action("Certificate")),
+            ("Configuration", dto.Configurations.Count, Action("Configuration")),
+            ("External Connections", dto.ExternalConnections.Count, Action("ExternalDependency")),
         };
 
         var applicable = rows.Where(r => r.Count > 0).ToList();

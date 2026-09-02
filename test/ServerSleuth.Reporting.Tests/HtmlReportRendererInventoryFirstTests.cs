@@ -127,6 +127,14 @@ public class HtmlReportRendererInventoryFirstTests
         Assert.DoesNotContain("External Connections", checklistSection, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// GUI-9B: "Deploy" moved from forbidden to approved (it is the DLL/Binary intent in
+    /// <c>MigrationIntentCatalog</c> — a descriptive label, never an execution verb) once the
+    /// checklist's vocabulary became centrally sourced from that catalog (§4 of the GUI-9B
+    /// instructions). The remaining forbidden words are real execution-implying verbs the
+    /// catalog never uses for any category — this still fully enforces "intents describe, never
+    /// execute" (skill.md GUI-9B §14).
+    /// </summary>
     [Fact]
     public void MigrationChecklistSection_UsesOnlyApprovedActionVocabulary()
     {
@@ -136,11 +144,33 @@ public class HtmlReportRendererInventoryFirstTests
         var nextSection = html.IndexOf("<section", checklistStart + 1, StringComparison.Ordinal);
         var checklistSection = html[checklistStart..(nextSection >= 0 ? nextSection : html.Length)];
 
-        var forbidden = new[] { "Execute", "Deploy", "Delete", "Uninstall" };
+        var forbidden = new[] { "Execute", "Delete", "Uninstall" };
         foreach (var word in forbidden)
         {
             Assert.DoesNotContain(word, checklistSection, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>
+    /// GUI-9B §16: locks in the exact checklist wording now sourced from
+    /// <c>MigrationIntentCatalog</c> instead of a local hard-coded string, so a future refactor
+    /// of that catalog cannot silently change rendered report text without this test failing.
+    /// </summary>
+    [Fact]
+    public void MigrationChecklistSection_ActionTextMatchesCentralizedIntentCatalog()
+    {
+        var html = BuildHtml();
+
+        var checklistStart = html.IndexOf("id=\"migration-checklist\"", StringComparison.Ordinal);
+        var nextSection = html.IndexOf("<section", checklistStart + 1, StringComparison.Ordinal);
+        var checklistSection = html[checklistStart..(nextSection >= 0 ? nextSection : html.Length)];
+
+        Assert.Contains("<td>Application Components (DLL / Binary)</td><td>2</td><td>Deploy / Verify</td>", checklistSection, StringComparison.Ordinal);
+        Assert.Contains("<td>Runtime Requirements</td><td>1</td><td>Install / Verify</td>", checklistSection, StringComparison.Ordinal);
+        Assert.Contains("<td>Windows Services</td><td>1</td><td>Create / Configure / Verify</td>", checklistSection, StringComparison.Ordinal);
+        Assert.Contains("<td>Scheduled Tasks</td><td>1</td><td>Create / Configure / Verify</td>", checklistSection, StringComparison.Ordinal);
+        Assert.Contains("<td>Certificates</td><td>1</td><td>Install / Verify</td>", checklistSection, StringComparison.Ordinal);
+        Assert.Contains("<td>Configuration</td><td>1</td><td>Create / Configure / Verify</td>", checklistSection, StringComparison.Ordinal);
     }
 
     [Fact]

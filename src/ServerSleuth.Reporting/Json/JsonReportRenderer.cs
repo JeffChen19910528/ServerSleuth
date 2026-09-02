@@ -4,6 +4,9 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Unicode;
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Core.Boundaries;
+using ServerSleuth.Core.Models;
+using ServerSleuth.Core.Orchestration;
 using ServerSleuth.Reporting.Json.Dto;
 
 namespace ServerSleuth.Reporting.Json;
@@ -22,6 +25,27 @@ namespace ServerSleuth.Reporting.Json;
 /// </summary>
 public sealed class JsonReportRenderer : IReportRenderer
 {
+    private readonly AggregateDiscoveryResult? _discovery;
+    private readonly IReadOnlyList<ApplicationBoundary>? _boundaries;
+    private readonly IReadOnlyList<ExternalDependency>? _externalDependencies;
+
+    /// <summary>
+    /// GUI-9A: the optional inventory parameters mirror <see cref="Html.HtmlReportRenderer"/> —
+    /// when supplied, the JSON output's nine inventory list fields (DllBinaries, Runtimes,
+    /// Services, ComComponents, Software, ScheduledTasks, Certificates, Configurations,
+    /// ExternalConnections) are populated from the same already-produced discovery data.
+    /// Omitting them keeps the existing output byte-identical (backward compatible).
+    /// </summary>
+    public JsonReportRenderer(
+        AggregateDiscoveryResult? discovery = null,
+        IReadOnlyList<ApplicationBoundary>? boundaries = null,
+        IReadOnlyList<ExternalDependency>? externalDependencies = null)
+    {
+        _discovery = discovery;
+        _boundaries = boundaries;
+        _externalDependencies = externalDependencies;
+    }
+
     /// <summary>
     /// <see cref="UnicodeRanges.All"/> keeps Unicode text (e.g. Traditional Chinese application
     /// names/paths) readable as literal characters instead of the default <c>\uXXXX</c> escaping
@@ -43,7 +67,9 @@ public sealed class JsonReportRenderer : IReportRenderer
     {
         ArgumentNullException.ThrowIfNull(report);
 
-        var dto = ReportDtoMapper.ToDto(report);
+        var dto = _discovery is not null && _boundaries is not null && _externalDependencies is not null
+            ? ReportDtoMapper.ToDto(report, _discovery, _boundaries, _externalDependencies)
+            : ReportDtoMapper.ToDto(report);
         var json = JsonSerializer.Serialize(dto, Options);
 
         return new ReportRenderResult

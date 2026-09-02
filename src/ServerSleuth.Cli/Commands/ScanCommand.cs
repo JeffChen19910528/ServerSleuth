@@ -75,7 +75,7 @@ internal static class ScanCommand
         reporter.WriteMigrationSummary(pipelineResult.Report.ServerSummary);
 
         reporter.WriteWritingReports();
-        var exportOutcome = ReportExportRunner.Export(pipelineResult.Report, options);
+        var exportOutcome = ReportExportRunner.Export(pipelineResult, options);
         foreach (var fileName in exportOutcome.WrittenFileNames)
         {
             reporter.WriteReportWritten(fileName);

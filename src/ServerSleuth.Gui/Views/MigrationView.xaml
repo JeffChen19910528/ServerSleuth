@@ -97,6 +97,58 @@
                     </StackPanel>
                 </Border>
 
+                <!-- GUI-10: MIGRATION PREPARATION — intent counts, built by the shared
+                     MigrationIntentCatalog/MigrationPreparationSummaryBuilder (see
+                     MigrationOverviewViewModel's own doc comment). Deliberately a separate card
+                     from the Migration Checklist above it — that one shows INVENTORY counts, this
+                     one shows INTENT counts, and the explanatory text makes the distinction
+                     explicit so "Create: 25" is never misread as "25 services" (skill.md GUI-10
+                     §5). Only shown when at least one preparation action is required. -->
+                <Border Style="{StaticResource Dashboard.Card}"
+                        Visibility="{Binding HasAnyPreparation, Converter={StaticResource BoolToVisibility}}">
+                    <StackPanel>
+                        <TextBlock Text="{DynamicResource Migration.Preparation}" Style="{StaticResource Dashboard.SectionTitle}" />
+                        <TextBlock Text="{DynamicResource Migration.PreparationSummary}" Style="{StaticResource Text.Muted}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <WrapPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding DeployCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Deploy}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding DeployCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding InstallCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Install}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding InstallCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding CreateCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Create}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding CreateCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding RegisterCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Register}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding RegisterCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding ConfigureCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Configure}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ConfigureCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding VerifyCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Verify}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding VerifyCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                            <StackPanel Margin="0,0,28,4"
+                                        Visibility="{Binding ReviewCount, Converter={StaticResource CountToVisibility}}">
+                                <TextBlock Text="{DynamicResource Migration.Intent.Review}" Style="{StaticResource Text.Muted}" />
+                                <TextBlock Text="{Binding ReviewCount}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" FontSize="18" />
+                            </StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+
                 <!-- MIGRATION SUMMARY — copied verbatim from ServerMigrationSummary, never recalculated. -->
                 <Border Style="{StaticResource Dashboard.Card}">
                     <StackPanel>

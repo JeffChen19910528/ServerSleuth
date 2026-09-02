@@ -1,3 +1,5 @@
+using ServerSleuth.Analysis.Migration.Preparation;
+
 namespace ServerSleuth.Reporting.Json.Dto;
 
 /// <summary>
@@ -36,4 +38,12 @@ public sealed record ServerReportDto
     public IReadOnlyList<InventoryEntityDto> Certificates { get; init; } = [];
     public IReadOnlyList<InventoryEntityDto> Configurations { get; init; } = [];
     public IReadOnlyList<InventoryEntityDto> ExternalConnections { get; init; } = [];
+
+    /// <summary>GUI-9B: a computed, inventory-derived "what must be prepared on the destination
+    /// server" projection over the nine lists above plus <c>Applications</c> — see
+    /// <see cref="MigrationPreparationSummary"/>. Defaults to
+    /// <see cref="MigrationPreparationSummary.Empty"/> for the same backward-compatibility reason
+    /// the nine inventory lists default to <c>[]</c>: a report built without discovery data
+    /// (the plain <c>ToDto(report)</c> overload) has nothing to summarize.</summary>
+    public MigrationPreparationSummary MigrationPreparation { get; init; } = MigrationPreparationSummary.Empty;
 }

@@ -310,7 +310,9 @@ release/
 
 ## 目前完成進度
 
-專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）以及 GUI-1 至 GUI-7C（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、語言切換、探勘盤點、儀表板摘要、遷移評估、報表、設定，以及最終整合驗收與上線前健檢）。GUI 的七個導覽頁面（Dashboard / Scan / Inventory / Results / Migration / Reports / Settings）皆為完整可用的真實畫面，沒有任何一個仍是尚未實作的佔位畫面。詳細的版本異動請見 [`CHANGELOG.md`](docs/CHANGELOG.md)；GUI-7C 的最終驗收證據見 [`docs/releases/FINAL_RELEASE_SIGNOFF.md`](docs/releases/FINAL_RELEASE_SIGNOFF.md)。
+專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）、GUI-1 至 GUI-7C（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、語言切換、探勘盤點、儀表板摘要、遷移評估、報表、設定，以及第一輪最終整合驗收與上線前健檢），以及 GUI-8A 至 GUI-10（盤點優先的 Dashboard/應用程式元件檢視、Migration Checklist、JSON/HTML 報表的完整盤點資料修復、`MigrationIntentCatalog`/`MigrationPreparationSummary` 這套以**盤點為依據、與風險判定完全無關**的遷移準備模型，以及 GUI 上的「Migration Preparation」卡片與排程工作詳細欄位）。GUI 的七個導覽頁面（Dashboard / Scan / Inventory / Results / Migration / Reports / Settings）皆為完整可用的真實畫面，沒有任何一個仍是尚未實作的佔位畫面。詳細的版本異動請見 [`CHANGELOG.md`](docs/CHANGELOG.md)；GUI-7C 當時的最終驗收證據見 [`docs/releases/FINAL_RELEASE_SIGNOFF.md`](docs/releases/FINAL_RELEASE_SIGNOFF.md)（歷史記錄，之後的 GUI-8A–GUI-10 與本次最終驗收未再產生新檔案，異動內容以 `CHANGELOG.md` 為準）。
+
+> **Migration Preparation 只是描述，不是指令。** `MigrationIntentCatalog`/`MigrationPreparationSummary` 依據「已探勘到的盤點項目」（而非風險發現/問題/嚴重性）計算出 Deploy / Install / Create / Register / Configure / Verify / Review 這幾種準備動作各需要處理幾項，純粹告訴使用者「到新伺服器上要準備什麼」，工具本身**不會**執行任何一項——這與上一段「嚴格唯讀」原則完全一致。
 
 > GUI 的互動式視覺驗證（實際點擊操作、畫面截圖）目前尚未在任何開發環境中執行過（本專案的開發流程沒有可用的 Windows 桌面自動化/截圖能力），此限制已在文件中如實記載。[`docs/releases/FINAL_USER_ACCEPTANCE_CHECKLIST.md`](docs/releases/FINAL_USER_ACCEPTANCE_CHECKLIST.md) 提供完整七個頁面的人工點擊驗收清單，正式驗收前建議由使用者在真實桌面環境中親自操作一次完整流程並勾選確認。
 

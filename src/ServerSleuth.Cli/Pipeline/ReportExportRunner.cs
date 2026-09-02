@@ -1,4 +1,4 @@
-using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Cli.Options;
 using ServerSleuth.Reporting.Export;
 
@@ -13,12 +13,17 @@ namespace ServerSleuth.Cli.Pipeline;
 /// <c>--format html</c> write only the requested file — <c>ReportArtifactFactory.CreateBundle</c>
 /// still renders both formats internally (cheap, in-memory, and keeps the bundle's own JSON/HTML-
 /// same-report guarantee intact), but only the requested artifact(s) are ever exported to disk.
+///
+/// GUI-9A: takes the full <see cref="ScanPipelineResult"/> (not just its <c>Report</c>) so the
+/// inventory-aware <c>ReportArtifactFactory.CreateBundle(ScanPipelineResult, ...)</c> overload is
+/// used — the CLI's JSON export previously called the <c>Report</c>-only overload, which left the
+/// nine inventory list fields empty even though discovery had already populated them.
 /// </summary>
 public static class ReportExportRunner
 {
-    public static ScanExportOutcome Export(ServerMigrationAssessmentReport report, ScanOptions options)
+    public static ScanExportOutcome Export(ScanPipelineResult pipelineResult, ScanOptions options)
     {
-        var bundle = ReportArtifactFactory.CreateBundle(report);
+        var bundle = ReportArtifactFactory.CreateBundle(pipelineResult);
         var exporter = new LocalFileReportExporter();
 
         var written = new List<string>();

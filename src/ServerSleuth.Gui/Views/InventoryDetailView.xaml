@@ -53,6 +53,34 @@
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
 
+                <!-- SCHEDULED TASK — GUI-10 §8: task-specific typed fields, previously invisible
+                     in this panel (only shown generically via Metadata below, which never
+                     carried these). Only rendered when the selected entity is a ScheduledTask;
+                     never fabricated for any other type. -->
+                <StackPanel Visibility="{Binding IsScheduledTask, Converter={StaticResource BoolToVisibility}}">
+                    <TextBlock Text="{DynamicResource InventoryDetail.ScheduledTask}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />
+                    <WrapPanel>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,20,4">
+                            <Run Text="{DynamicResource InventoryDetail.ScheduledTask.Folder}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskFolder, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,20,4">
+                            <Run Text="{DynamicResource InventoryDetail.ScheduledTask.Trigger}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskTrigger, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,20,4">
+                            <Run Text="{DynamicResource InventoryDetail.ScheduledTask.RunAsAccount}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskRunAsAccount, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,20,4">
+                            <Run Text="{DynamicResource InventoryDetail.ScheduledTask.Enabled}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskEnabled, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Style="{StaticResource Text.Body}" Margin="0,0,20,4">
+                            <Run Text="{DynamicResource InventoryDetail.ScheduledTask.NextRun}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskNextRun, Mode=OneWay}" />
+                        </TextBlock>
+                    </WrapPanel>
+                    <TextBlock Style="{StaticResource Text.Body}" Margin="0,4,0,0" TextWrapping="Wrap">
+                        <Run Text="{DynamicResource InventoryDetail.ScheduledTask.Action}" FontWeight="SemiBold" /><Run Text="{Binding ScheduledTaskAction, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+
                 <!-- EVIDENCE — read straight from the entity's own EvidenceRecord list, never
                      re-scanned (skill.md GUI-6A §9). -->
                 <TextBlock Text="{DynamicResource InventoryDetail.Evidence}" Style="{StaticResource Dashboard.SectionTitle}" Margin="0,16,0,8" />

@@ -1124,3 +1124,555 @@ risk. Risk Assessment remains a secondary, unmodified capability.
   silently raise the timeout; not modified.
 - This is the final GUI feature phase per the GUI-8C instructions. No GUI-9 or further feature
   phase was started.
+
+## Unreleased (Phase GUI-9A — Inventory Data Pipeline & Scheduler Audit)
+
+A real 102-application/19,104-issue scan (`release/windows/report.json`) exposed a gap GUI-8C's
+synthetic fixtures never exercised: every one of the nine inventory arrays (`DllBinaries`,
+`Runtimes`, `Services`, `ComComponents`, `Software`, `ScheduledTasks`, `Certificates`,
+`Configurations`, `ExternalConnections`) was empty in the exported JSON, even though the HTML
+report (built from the same scan) correctly showed them. This phase is an audit-driven fix, not a
+GUI redesign — no new scanner, no new page, no Risk UI changes.
+
+### Root cause
+GUI-8C added the discovery-aware `ReportDtoMapper.ToDto(report, discovery, boundaries,
+externalDeps)` overload and wired it into `HtmlReportRenderer`, but never into
+`JsonReportRenderer` — the JSON renderer had no constructor parameters to receive
+discovery/boundary data at all, so `ReportArtifactFactory.CreateBundle(ScanPipelineResult, ...)`
+could only ever call `new JsonReportRenderer().Render(pipeline.Report)` (the report-only overload).
+Compounding this, the CLI's `ReportExportRunner.Export` — the code path that actually produced
+`release/windows/report.json` — took only `ServerMigrationAssessmentReport report`, discarding the
+rest of `ScanPipelineResult` (including `Discovery`/`Boundaries`/`ExternalDependencies`) before
+`ReportArtifactFactory` was ever called, so even fixing the JSON renderer alone would not have
+reached the real CLI output. All nine inventory *scanners themselves* were already correct and
+already populating `AggregateDiscoveryResult.Entities` — this was purely a Reporting-layer/CLI
+wiring gap (classified (C) DiscoveryEntity data exists but is not mapped at these two call sites),
+never a discovery or Analysis-layer defect.
+
+### Added
+- `JsonReportRenderer`: new optional constructor parameters (`discovery`, `boundaries`,
+  `externalDependencies`), mirroring `HtmlReportRenderer` exactly. When supplied, `Render` uses the
+  existing `ReportDtoMapper.ToDto(report, discovery, boundaries, externalDeps)` overload so the
+  JSON contract's nine inventory list fields are populated from the same already-produced
+  discovery data the HTML renderer already uses. Omitting them reproduces the exact prior
+  byte-for-byte JSON output (backward compatible).
+- `test/ServerSleuth.Reporting.Tests/JsonReportRendererInventoryTests.cs` (6 tests): real
+  discovered entities (`Dapper.dll`, `Nightly` scheduled task) appear in `DllBinaries`/
+  `ScheduledTasks`; all nine inventory fields are always present as arrays (populated or empty,
+  never missing/null); categories with zero discovered entities (`ComComponents`, `Software`,
+  `ExternalConnections`) stay empty — never fabricated; omitting the new constructor parameters
+  keeps all nine fields empty (backward compatible); `Configurations` entries never expose
+  `SecretDetected`/`RawContent`/`Content` — the existing `InventoryEntityDto` safety boundary from
+  GUI-8C holds unchanged.
+- `test/ServerSleuth.Cli.Tests/ScanCommandInventoryExportTests.cs` (2 tests): the CLI's actual
+  exported `report.json` (via the real `scan` command, the same 17-entity ERP fixture
+  `ScanCommandErpEndToEndTests` already uses) contains non-empty `DllBinaries`/`Services`/
+  `ScheduledTasks`/`Runtimes`/`Certificates`/`Configurations`, including the real
+  `BatchC` scheduled task by name; the exported JSON and HTML reports agree on inventory presence.
+
+### Changed
+- `ReportArtifactFactory.CreateBundle(ScanPipelineResult, ...)`: now passes
+  `pipeline.Discovery`/`pipeline.Boundaries`/`pipeline.ExternalDependencies` into
+  `JsonReportRenderer` as well as `HtmlReportRenderer` — previously only the HTML renderer received
+  them. Both artifacts are still rendered from the same in-memory `ScanPipelineResult`; no second
+  analysis pass.
+- `ReportExportRunner.Export`: signature changed from `(ServerMigrationAssessmentReport report,
+  ScanOptions options)` to `(ScanPipelineResult pipelineResult, ScanOptions options)` — the minimal
+  change needed for the CLI's already-computed `Discovery`/`Boundaries`/`ExternalDependencies`
+  (previously discarded at this call site) to reach `ReportArtifactFactory`. `ScanCommand.RunAsync`
+  updated to pass `pipelineResult` instead of `pipelineResult.Report`.
+
+### Scheduled task discovery status (audit finding, no code change)
+- **Windows**: fully supported. `WindowsScheduledTaskScanner` (Task Scheduler 2.0 COM API) already
+  captures Task Name, Folder/Path, primary Trigger type, primary Action (executable or script
+  path), RunAsAccount, Enabled, NextRun, State, plus per-action/per-trigger metadata (arguments,
+  working directory, start/end boundaries) — nothing new was needed. `ScheduledTaskRunsBinaryRule`
+  already correlates each task's Execute action to a discovered binary, and that edge already feeds
+  `ApplicationBoundary.MemberEntityIds` via the existing boundary/correlation engine — no ownership
+  is ever inferred from task name alone.
+- **Linux**: cron is fully supported (`LinuxScheduledTaskScanner` reads `/etc/crontab`,
+  `/etc/cron.d`, the four `/etc/cron.{hourly,daily,weekly,monthly}` run-parts directories, and both
+  Debian- and RHEL-style user crontab spool layouts, producing the same `Core.Models.ScheduledTask`
+  entity Windows uses). systemd timer units (`*.timer`) are **not supported** — no timer-specific
+  scanner exists (only `LinuxSystemdServiceScanner` for services, which does not read timer unit
+  files); documented here as a known gap, not implemented in this phase since it is not the root
+  cause of the empty-inventory issue and building a new scanner was explicitly out of this phase's
+  scope.
+
+### Security
+- No change to `InventoryEntityDto`'s field set — the same safe projection GUI-8C established
+  (no `SecretDetected`, no raw configuration content) is now reached by both renderers identically;
+  the new JSON tests assert this directly.
+
+### Notes
+- No scanner, `IDiscoveryScanner`, `ApplicationBoundaryEngine`, `CorrelationEngine`,
+  `RiskRuleEngine`, `MigrationAssessmentEngine`, `MigrationPlanEngine`, or `MigrationPolicy` was
+  modified or added. Risk/Migration classification logic is byte-for-byte unchanged.
+- No new execution capability was added anywhere — this phase only changed which already-collected,
+  read-only data reaches the existing JSON serializer.
+- Full regression: `dotnet build` — 0 warnings, 0 errors, full solution. `Core` 61/61, `Analysis`
+  445/445, `Infrastructure` 171/171, `Linux` 345/345, `Integration` 14/14,
+  `Gui.ExecutionHost.Tests` 22/22, `Cli.Tests` 100/100 (net8.0) and 106/106 (net8.0-windows),
+  `Reporting.Tests` 160/160 (including the 6 new inventory tests), `Windows.Tests` 376/376.
+  `Gui.Tests` 420/423 — the 3 failures (`ScanExecutionViewModelTests.
+  Start_SurfacesTheExecutorsProgressReports_InOrder`,
+  `Start_WithCredentials_NeverLeaksThemIntoState`,
+  `MainViewModelMigrationReportsSettingsNavigationTests.
+  AfterACompletedScan_NavigatingToReports_ShowsTheRealReportFiles`) are the same pre-existing,
+  environment-specific `WaitUntilAsync`/cold-start timing flakiness documented since GUI-6A/GUI-8A —
+  confirmed on unmodified `master` (before this phase's changes): the first of the three reproduces
+  identically when the full solution's tests run together, and all three pass individually in
+  isolation, consistent with resource-contention-driven timing flakiness rather than a real defect;
+  not touched to force green, and `ServerSleuth.Gui` was not modified by this phase at all.
+- This phase is not a GUI redesign: no new page, no new navigation, no chart, no Risk card, no
+  severity indicator was added. `ServerSleuth.Gui`'s source was not touched.
+
+## Unreleased (Phase GUI-9B — Migration Inventory Foundation)
+
+Backend/data-model foundation only, per the approved GUI-9B architecture proposal: establishes
+DISCOVER → INVENTORY → CORRELATE → MIGRATION PREPARATION as inventory-derived, deliberately
+independent of Risk. No GUI changes; no scanner, correlation, or Risk-engine changes.
+
+### Added
+- `src/ServerSleuth.Reporting/Json/Dto/MigrationIntent.cs`: closed enum (`Deploy`, `Install`,
+  `Create`, `Register`, `Configure`, `Verify`, `Review`) — descriptive labels only, never executed.
+- `src/ServerSleuth.Reporting/Json/Dto/MigrationIntentCatalog.cs`: the single source of truth for
+  category → `MigrationIntent` mapping, replacing the vocabulary previously duplicated across
+  `HtmlReportRenderer`, `ApplicationDetailView.xaml`, and `LocalizedStrings`. Keyed by the same
+  `InventoryEntityDto.EntityType` strings `ReportDtoMapper` already assigns, plus
+  `MigrationIntentCatalog.ApplicationCategory` for the `Applications` collection. A pure,
+  deterministic static lookup — reads no Risk/Assessment state (asserted by a test that scans the
+  catalog's own source file for forbidden type names).
+- `src/ServerSleuth.Reporting/Json/Dto/MigrationPreparationSummary.cs`: `MigrationIntentCount`
+  (one intent + its count) and `MigrationPreparationSummary` (`TotalInventoryCount` +
+  `IntentCounts`, always all seven intents present even at zero — e.g. `Review`, which no current
+  category maps to) plus the internal `MigrationPreparationSummaryBuilder` that computes it purely
+  from `ServerReportDto`'s already-populated inventory `Count`s (Applications + the nine
+  categories) and `MigrationIntentCatalog` — never reads `MigrationIssue`/`MigrationAction`/
+  `RiskSeverity`/blocking-status. `ServerReportDto.MigrationPreparation` (new field, defaults to
+  `MigrationPreparationSummary.Empty` for the same backward-compatibility reason the nine
+  inventory lists default to `[]`).
+- `InventoryEntityDto.ApplicationNames` (new, additive `IReadOnlyList<string>`, default `[]`):
+  every application boundary that claims an entity, sorted OrdinalIgnoreCase — `[]` when
+  unclaimed, one entry when singly claimed, two or more when legitimately shared. The existing
+  `ApplicationName: string?` is preserved byte-for-byte (still the first boundary encountered, in
+  original iteration order) for backward compatibility; `ReportDtoMapper`'s attribution loop now
+  collects the full per-entity name list instead of stopping at the first match. The shared entity
+  is still represented exactly once in its inventory list — sharing is expressed only through
+  `ApplicationNames`, never by duplicating the entity.
+- `test/ServerSleuth.Reporting.Tests/MigrationIntentCatalogTests.cs` (15 tests): the approved
+  mapping for all ten categories; unknown category returns empty (never guessed); determinism; no
+  duplicate intents per category; no category currently maps to `Review`; a source-file scan
+  proving the catalog references no Risk/Assessment type name.
+- `test/ServerSleuth.Reporting.Tests/MigrationPreparationSummaryTests.cs` (8 tests): empty
+  discovery → all-zero summary; all seven intents always present; one entity contributing to
+  multiple intents is not mistaken for multiple entities; Verify sums correctly across categories;
+  determinism across repeated renders; **the summary is identical whether or not the same
+  inventory item has a Risk finding** (a healthy vs. a missing-dependency DLL produce byte-identical
+  `MigrationPreparation` output) — the strongest evidence that this is inventory-derived, not
+  Risk-derived; omitting the `JsonReportRenderer` inventory parameters keeps the summary empty
+  (backward compatible).
+- `test/ServerSleuth.Reporting.Tests/ApplicationAttributionTests.cs` (4 tests): zero/one/two/three
+  boundary-membership cases for `ApplicationName`/`ApplicationNames`, built from real
+  `ApplicationContainsBinaryRule` correlation (a DLL's `ReferencedByEntityIds` naming two or three
+  real IIS Applications) — never inferred from entity names; a shared entity still appears exactly
+  once in its server-level inventory list; `ApplicationNames` ordering is deterministic regardless
+  of discovery/boundary order.
+- `test/ServerSleuth.Reporting.Tests/InventoryCompletenessTests.cs` (28 tests): for all nine
+  inventory categories independently, parameterized `[0, 1, 3]` synthetic entity counts assert
+  source count equals report count, plus a combined all-zero check — no hard-coded ERP/QINV
+  values anywhere in this file, per the GUI-9B instructions.
+- `test/ServerSleuth.Cli.Tests/ScanCommandInventoryExportTests.cs`: one new real-data-acceptance
+  test (`ExportedJsonReport_MigrationPreparationIsComputedFromRealInventory`) — the CLI's actual
+  exported `report.json` for the real 17-entity ERP fixture has a non-zero `MigrationPreparation`
+  summary, and the fixture's real shared executable (`host.exe`, referenced by BatchA/BatchB/
+  BatchC) shows non-empty `ApplicationNames` on its owning Services.
+
+### Changed
+- `ReportDtoMapper`'s inventory overload: the `entityId → application name` lookup now collects
+  every claiming boundary (not just the first), used to populate the new `ApplicationNames` field
+  on every `InventoryEntityDto` it builds (including `ExternalConnections`); `ApplicationName`
+  itself is unchanged. Also computes and attaches `MigrationPreparation` from the just-built
+  inventory lists before returning. The plain `ToDto(report)` overload is untouched.
+- `HtmlReportRenderer.AppendMigrationChecklist`: action text per row now comes from
+  `MigrationIntentCatalog.IntentsFor(category)` instead of a locally hard-coded string —
+  behavior-preserving in architecture (same table, same columns, same omit-when-zero rule), but
+  the *wording* intentionally changed for three categories per the approved mapping: DLL/Binary
+  `"Copy"` → `"Deploy / Verify"`, Installed Software `"Install / Review / Verify"` →
+  `"Install / Verify"`, Configuration `"Configure / Verify"` → `"Create / Configure / Verify"`,
+  External Connections `"Verify / Review"` → `"Configure / Verify"`. A new test
+  (`HtmlReportRendererInventoryFirstTests.MigrationChecklistSection_ActionTextMatchesCentralizedIntentCatalog`)
+  locks in the new exact wording so a future catalog change cannot silently alter rendered report
+  text again.
+- `HtmlReportRendererInventoryFirstTests.MigrationChecklistSection_UsesOnlyApprovedActionVocabulary`:
+  `"Deploy"` removed from the forbidden-word list (it is now the approved DLL/Binary intent — a
+  descriptive label, never an execution verb) while `"Execute"`/`"Delete"`/`"Uninstall"` remain
+  forbidden, so the test still fully enforces "intents describe, never execute."
+
+### Security
+- `InventoryEntityDto.ApplicationNames` carries only application/boundary display names (the same
+  data already exposed via `ApplicationName`) — no new upstream field is read, no secret-shaped
+  data is newly reachable. `MigrationPreparationSummary` carries only category counts. Existing
+  `ConfigurationComponentRow`/`InventoryEntityDto` secret-exclusion tests are unaffected and remain
+  green.
+
+### Notes
+- **Why Risk/Actions were not reused as the inventory-wide migration plan**: `MigrationAction`/
+  `MigrationActionType` (`MigrationActionPlanner.Plan`) iterate `ServerMigrationAssessment.Issues`
+  only — an entity with zero Risk findings produces zero `MigrationAction`s. Reusing that machinery
+  would have meant "no findings" silently meant "nothing to prepare," which is false for the
+  majority of a real inventory (most discovered Services/DLLs/Certificates/etc. have no Risk
+  finding at all but still must be deployed/installed/configured/verified on the destination
+  server). `MigrationIntentCatalog`/`MigrationPreparationSummary` are therefore a new, small,
+  purely inventory-derived projection, not a modification or reuse of the Issue/Dependency-derived
+  Action/Check machinery — `RiskRuleEngine`, `MigrationPolicy`, `MigrationActionPlanner`,
+  `MigrationVerificationPlanner`, `MigrationAssessmentEngine`, `MigrationPlanEngine`, and
+  `ServerMigrationAssessmentReport` were not modified, and existing Risk/Action/Check counts and
+  behavior are unchanged (re-confirmed by the full Analysis suite passing unmodified, 445/445).
+- No scanner, `IDiscoveryScanner`, `CorrelationEngine`, `ApplicationBoundaryEngine`,
+  `DependencyExpansionEngine` was modified. Windows Scheduled Task support remains fully supported,
+  Linux cron remains supported, Linux systemd timers remain not supported — unchanged from GUI-9A,
+  not re-implemented here.
+- No execution capability was added anywhere — every `MigrationIntent` value is a descriptive
+  label; nothing in this phase copies a file, creates a service, registers a COM component,
+  installs a certificate, creates a scheduled task, or runs a command.
+- `ServerSleuth.Gui`'s source was not touched at all in this phase (confirmed: the full solution
+  build succeeds with 0 warnings/0 errors and no GUI file appears in the diff) — the new JSON
+  fields (`ApplicationNames`, `MigrationPreparation`) are available for a future GUI phase to
+  consume, but no GUI page/view-model reads them yet.
+- Full regression: `dotnet build` — 0 warnings, 0 errors, full solution. `Core` 61/61, `Analysis`
+  445/445, `Infrastructure` 171/171, `Linux` 345/345, `Integration` 14/14,
+  `Gui.ExecutionHost.Tests` 22/22, `Cli.Tests` 101/101 (net8.0) and 107/107 (net8.0-windows),
+  `Reporting.Tests` 216/216 (161 existing/updated + 55 new: 28 completeness + 15 catalog + 8
+  summary + 4 attribution), `Windows.Tests` 376/376. `Gui.Tests` showed 418/423 on this run
+  (5 failures, all in `MainViewModelResultsNavigationTests`/`ScanExecutionViewModelTests`/
+  `MainViewModelMigrationReportsSettingsNavigationTests`) — the same pre-existing, environment-
+  specific `WaitUntilAsync`/cold-start timing flakiness already documented in GUI-6A/GUI-8A/GUI-9A
+  (a different random subset of the same flaky test class fails from run to run under full-suite
+  contention); consistent with, not a regression from, this phase, since zero `ServerSleuth.Gui`
+  files were touched. Not modified to force green.
+- This phase is backend/data-model only, per its own scope: no GUI-9C or further phase was
+  started.
+
+## Unreleased (Phase GUI-10 — Migration Preparation UI) — FINAL FEATURE DEVELOPMENT PHASE
+
+Final product-facing GUI phase: makes DISCOVER → INVENTORY → CORRELATE → MIGRATION PREPARATION
+visible in the GUI itself. Enhances the existing Inventory/Migration pages rather than adding new
+ones. Risk/Assessment stays available but secondary, exactly as GUI-8A/8C/9B already established.
+
+### A required relocation (not scope creep, a hard architectural constraint)
+`MigrationIntentCatalog`/`MigrationPreparationSummary`/`MigrationPreparationSummaryBuilder`
+(GUI-9B) lived in `ServerSleuth.Reporting.Json.Dto`. `NoDirectPlatformAccessTests` already asserts
+`ServerSleuth.Gui`/`ServerSleuth.Gui.Contracts` never reference `ServerSleuth.Reporting` at the
+assembly level — so consuming GUI-9B's catalog/builder as-is from the GUI without duplicating them
+was structurally impossible without moving them. They were relocated to the neutral
+`ServerSleuth.Analysis.Migration.Preparation` namespace (Analysis is already an allowed GUI
+dependency), with zero behavior change: `MigrationIntentCatalog`'s mapping is byte-for-byte
+identical, and `MigrationPreparationSummaryBuilder.Build` was generalized from taking a
+Reporting-specific `ServerReportDto` to taking plain `(string Category, int Count)` pairs, so both
+`ReportDtoMapper` (Reporting) and `MigrationOverviewViewModel` (Gui) now call the exact same method
+against their own already-computed counts — neither duplicates the mapping or the aggregation
+logic. `MigrationIntentCount.Intent` changed from a pre-stringified `string` to the actual
+`MigrationIntent` enum (JSON output is unaffected — `JsonReportRenderer`'s existing
+`JsonStringEnumConverter` still serializes it as the same string name, e.g. `"Deploy"`).
+
+### Added
+- `src/ServerSleuth.Analysis/Migration/Preparation/MigrationIntent.cs`,
+  `MigrationIntentCatalog.cs`, `MigrationPreparationSummary.cs` — moved from
+  `ServerSleuth.Reporting/Json/Dto/` (deleted there), generalized as described above.
+- `MigrationOverviewViewModel.PreparationSummary`/`HasAnyPreparation`/`DeployCount`/
+  `InstallCount`/`CreateCount`/`RegisterCount`/`ConfigureCount`/`VerifyCount`/`ReviewCount` — built
+  once in the constructor from `MigrationPreparationSummaryBuilder.Build` against this page's own
+  server-wide, unfiltered per-category `OfType<T>().Count()` values (the same idiom
+  `DashboardOverviewViewModel`'s `*EntityCount` properties already use) plus
+  `Report.ApplicationAssessments.Count` for the Application category — deliberately NOT built from
+  the existing per-application `Total*Count` sums (GUI-8C), which intentionally double-count a
+  shared entity once per application boundary; the preparation summary counts each server-wide
+  entity exactly once (skill.md GUI-10 §5, §11).
+- `MigrationView.xaml`: a new "Migration Preparation" card, positioned after the existing
+  Migration Checklist (inventory counts) card and before the Migration Summary (status) card —
+  seven stat tiles (Deploy/Install/Create/Register/Configure/Verify/Review), each hidden
+  individually at zero, plus explanatory text making the Inventory-Count-vs-Intent-Count
+  distinction explicit so e.g. "Create: 25" is never misread as "25 services" (skill.md GUI-10
+  §5). No chart, no heatmap, no color-coded severity — plain stat tiles matching the existing
+  Migration Checklist card's own visual language.
+- `InventoryDetailViewModel`: six new `ScheduledTask`-specific properties (`ScheduledTaskFolder`/
+  `Trigger`/`Action`/`RunAsAccount`/`Enabled`/`NextRun`, plus `IsScheduledTask`) — a real,
+  previously-existing gap: the Inventory Explorer's detail panel only ever showed base
+  `DiscoveryEntity` fields and `Metadata`, and neither `WindowsScheduledTaskScanner` nor
+  `LinuxScheduledTaskScanner` puts Folder/Trigger/Action/RunAsAccount/Enabled/NextRun into
+  `Metadata` (they are typed properties on `ScheduledTask` itself) — so a user selecting a
+  scheduled task in Inventory could not previously see its trigger, action, or run-as account at
+  all. Populated via a simple `entity is ScheduledTask` check, mirroring the exact
+  type-specific-optional-field pattern `InventoryEntityDto`/`ReportDtoMapper` already use; `null`
+  for every other entity type, never fabricated. No scanner was touched.
+- `InventoryDetailView.xaml`: a new "Scheduled Task Details" section rendering the six fields
+  above, visible only when `IsScheduledTask` is true.
+- `LocalizedStrings.cs`: `Migration.Preparation`, `Migration.PreparationSummary`, seven
+  `Migration.Intent.*` labels, and six `InventoryDetail.ScheduledTask*` labels — English +
+  Traditional Chinese for all fourteen.
+- `test/ServerSleuth.Analysis.Tests/Migration/MigrationIntentCatalogTests.cs` (15 tests, moved
+  from `ServerSleuth.Reporting.Tests` unchanged in substance, namespace/location updated only).
+- `test/ServerSleuth.Gui.Tests/ViewModels/MigrationPreparationTests.cs` (16 tests): all-zero
+  before any scan; a Service entity contributes to Create/Configure/Verify; a DLL contributes to
+  Deploy/Verify, not Create; `TotalInventoryCount` counts a shared entity once (never the
+  per-application double-count `TotalServiceCount` intentionally uses); **the preparation summary
+  is identical regardless of how many Risk findings the same inventory has** (the same
+  Risk-independence proof GUI-9B established, re-verified at the GUI layer); Review stays zero
+  under the current mapping; determinism; all fourteen new localization keys present in both
+  languages.
+- `test/ServerSleuth.Gui.Tests/ViewModels/Results/InventoryScheduledTaskDetailTests.cs`
+  (3 tests): a Windows-shaped `ScheduledTask` fixture surfaces all six fields correctly; a
+  non-ScheduledTask entity has all six fields `null` (never fabricated); a Linux-cron-shaped
+  `ScheduledTask` fixture (same `Core.Models.ScheduledTask` type, `Source = "Cron"`) surfaces
+  identically with no OS-specific branching in the view model.
+
+### Changed
+- `ReportDtoMapper`'s inventory overload: builds the `(category, count)` pairs itself and calls
+  the relocated, generalized `MigrationPreparationSummaryBuilder.Build` — output is byte-for-byte
+  identical to before (same categories, same counts, same intent mapping), only the internal call
+  shape changed.
+- `HtmlReportRenderer`: `using` updated to the relocated `MigrationIntentCatalog` namespace; no
+  behavior change.
+
+### Application/Component correlation, shared components, Scheduled Tasks — already correct
+Investigation for this phase found `InventoryExplorerViewModel`/`InventoryDetailViewModel`/
+`InventoryItemViewModel` (GUI-6A) and `ApplicationComponentsViewModel` (GUI-8B) already fully
+satisfy GUI-10 §3, §6, §7: every discovered category is shown (never a hard-coded vocabulary);
+application attribution is built directly from `ApplicationBoundary.MemberEntityIds`, keeping
+every claiming boundary (never picking only the first); a shared entity is never duplicated,
+only listed with every application name; an unclaimed entity renders as "Unassigned," never
+guessed. These pages were **not modified** for §3/§6/§7 — only the Scheduled Task field gap
+above needed a fix.
+
+### Scheduled Tasks / scheduler capability — unchanged from GUI-9A
+Windows Scheduled Task discovery remains fully supported; Linux cron remains supported; Linux
+systemd timers remain not supported. No scanner was added or modified. No new "unsupported
+capability" indicator was added: the existing scanner-coverage-warning mechanism (GUI-6A's
+`HasPartialCoverage`) already communicates scanner-level limitations generically, and because no
+systemd-timer scanner is registered at all, none of its output can ever be fabricated or falsely
+claimed — the absence of `Source: "Systemd"` scheduled tasks is itself the accurate representation.
+
+### Security
+- No new field crosses the GUI boundary that wasn't already reachable: `ScheduledTask`'s six new
+  properties are the same typed fields already present on the domain entity (no secret-shaped
+  field exists on `ScheduledTask`); `MigrationPreparationSummary`/`MigrationIntentCount` carry only
+  integers and enum values. `ConfigurationComponentRow`'s existing safe projection is untouched.
+- `ServerSleuth.Gui`/`ServerSleuth.Gui.Contracts` still reference nothing beyond
+  `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost` — re-verified by the full
+  `NoDirectPlatformAccessTests` suite passing unmodified (5/5), including the two tests that
+  enumerate every `ServerSleuth.*` assembly reference by name.
+
+### Notes
+- No scanner, `IDiscoveryScanner`, `CorrelationEngine`, `ApplicationBoundaryEngine`,
+  `DependencyExpansionEngine`, `RiskRuleEngine`, `MigrationPolicy`, `MigrationActionPlanner`,
+  `MigrationVerificationPlanner`, `MigrationAssessmentEngine`, `MigrationPlanEngine`, or
+  `ServerMigrationAssessmentReport` was modified. Risk/Action/Check behavior and counts are
+  unchanged (re-confirmed: the full Analysis suite passes unmodified, 460/460 — 15 more than
+  GUI-9B's 445 because `MigrationIntentCatalogTests` moved into this project).
+- `MigrationIntentCatalog`/`MigrationPreparationSummaryBuilder` are called directly by the GUI —
+  never redefined, never a second copy of the category→intent mapping or the aggregation logic.
+- No execution capability was added — every `MigrationIntent` value remains a descriptive label
+  only; nothing added in this phase copies a file, creates a service, registers a COM component,
+  installs a certificate, creates a scheduled task, or runs a command.
+- No new top-level page, navigation entry, chart, heatmap, or Risk severity indicator was added —
+  the two new UI surfaces (the Migration Preparation card, the Scheduled Task detail section) are
+  both additions to existing pages, both plain stat tiles/text fields matching the existing visual
+  language.
+- Full regression: `dotnet build` — 0 warnings, 0 errors, full solution. `Core` 61/61, `Analysis`
+  460/460, `Infrastructure` 171/171, `Linux` 345/345, `Integration` 14/14,
+  `Gui.ExecutionHost.Tests` 22/22, `Cli.Tests` 101/101 (net8.0) and 107/107 (net8.0-windows),
+  `Reporting.Tests` 201/201 (216 GUI-9B minus 15 `MigrationIntentCatalogTests` moved to
+  Analysis.Tests), `Windows.Tests` 376/376. `Gui.Tests` 439/442 on the full-suite run — the 3
+  failures (`ScanExecutionViewModelTests.ScanExecutionViewModel_OnlyEverCallsThroughTheAbstractExecutor`,
+  `Start_WhenExecutorReportsPartial_PreservesThatStatus`,
+  `MainViewModelMigrationReportsSettingsNavigationTests.AfterACompletedScan_NavigatingToMigration_ShowsTheRealApplicationList_WithoutRerunningTheExecutor`)
+  all passed individually in isolation immediately afterward (3/3, 45ms total) — the same
+  pre-existing, environment-specific `WaitUntilAsync`/cold-start timing flakiness under full-suite
+  resource contention documented since GUI-6A, reconfirmed here specifically because this phase
+  (unlike GUI-9A/9B) did modify `ServerSleuth.Gui` files; not touched to force green.
+- Real-data acceptance: `ScanCommandInventoryExportTests`/`ScanCommandErpEndToEndTests` (the real
+  17-entity ERP fixture through the actual CLI `scan` command) continue to pass unmodified,
+  confirming `MigrationPreparation`/`ApplicationNames` still flow correctly through the JSON/HTML
+  path this phase's relocation touched. All new GUI-level tests use synthetic, parameterized
+  fixtures (never hard-coded ERP/QINV values), per the phase's own instruction that the same GUI
+  must work with any server's data.
+- This is the final feature development phase per the GUI-10 instructions. No GUI-11 or further
+  feature phase was started; the next step is final acceptance / v1.0.
+
+## Unreleased (Final Acceptance — v1.0.0 Release Readiness)
+
+Validation-only phase, no new feature: verified GUI-9A/9B/10's cumulative result end to end
+(build, full regression, real-machine scan, security boundary, release-package inspection) and
+made the smallest possible README correction. No source behavior was changed in `src/`.
+
+### Verified (no code change required)
+- Full solution `dotnet build`: 0 warnings, 0 errors.
+- Full regression: every non-GUI suite 100% (`Core` 61/61, `Analysis` 460/460, `Infrastructure`
+  171/171, `Linux` 345/345, `Integration` 14/14, `Gui.ExecutionHost.Tests` 22/22, `Cli.Tests`
+  101/101 + 107/107, `Reporting.Tests` 201/201, `Windows.Tests` 376/376).
+- Security suites specifically re-run and green: `NoDirectPlatformAccessTests` (5/5),
+  GUI `*SecurityBoundary*`/`*Secret*` tests (32/32), Reporting `*Secret*`/`*RawConfiguration*`
+  tests (18/18), CLI `*Secret*` tests (6/6 × 2 TFMs).
+- Real-data acceptance performed against this actual development machine (not only the ERP
+  fixture): a full `dotnet run -- scan` discovered 35,020 entities / 102 applications and
+  produced a real `report.json` confirming — on genuine, non-synthetic data — all nine inventory
+  categories populated (18,161 DLLs, 326 Services, 14,204 COM components, 80 Software, 213
+  Scheduled Tasks, 68 Certificates, 1,508 Configurations, 252 External Connections, 14 Runtimes),
+  a correctly-computed `MigrationPreparation` summary (`Verify` = 34,928 = `TotalInventoryCount`,
+  `Deploy` = 18,161 = DLL count, `Register` = 14,204 = COM count, `Review` = 0 as the current
+  mapping predicts), zero `SecretDetected`/`RawContent`/`Content`/`Password`/`Credential` fields
+  across all 1,508 real `Configurations` entries, and one genuine shared entity
+  (`rundll32.exe`, `ApplicationNames` listing 11 real scheduled-task/boundary names) — the exact
+  shared-attribution behavior GUI-9B/GUI-10 built, observed on real Windows Task Scheduler data.
+  The scan output was deleted after inspection (not committed — a temporary verification
+  artifact, not release output).
+- `NoDirectPlatformAccessTests`/dependency graph: `ServerSleuth.Gui`/`ServerSleuth.Gui.Contracts`
+  still reference nothing beyond `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost`.
+- One GUI test (`MainViewModelResultsNavigationTests.
+  ViewResults_AfterACompletedScan_ShowsTheRealResultsDashboardViewModel`) was found to fail
+  deterministically (3/3 runs) in this specific environment — investigated per the phase's own
+  "run individually, determine isolation/environmental cause, do not weaken the test" instruction:
+  reproduced identically (3/3) on a completely unmodified `master` checkout (`git stash -u`,
+  predating GUI-9A/9B/10 entirely), confirming it is a pre-existing, environment-specific
+  `WaitUntilAsync` timing sensitivity in this test's own 5-second poll loop, not a regression from
+  any phase this session touched. Not classified as a release blocker (skill.md Final Acceptance
+  §22: does not lose/corrupt/fabricate discovery, inventory, attribution, or migration-preparation
+  data; does not affect a real Windows/Linux workflow or the release executable) and not modified.
+- Release scripts (`build-release.ps1`/`.sh`) inspected: version is read from the single source of
+  truth (`Directory.Build.props`, already `1.0.0`), no hard-coded version string exists to drift.
+  No change was needed — this phase added no new project, csproj, entry point, or package
+  reference that the existing publish/packaging logic would need to account for.
+
+### Changed
+- `README.md`: the "目前完成進度" (current completion status) paragraph, previously stopping at
+  GUI-7C, now also names GUI-8A–GUI-10 and what each contributed (inventory-first Dashboard/
+  Application Components, Migration Checklist, the JSON/HTML inventory pipeline fix, the
+  inventory-derived `MigrationIntentCatalog`/`MigrationPreparationSummary` model, and the GUI's
+  Migration Preparation card/Scheduled Task detail fields) — a factual correction, not a redesign.
+  Added one short callout making explicit that Migration Preparation is descriptive only and
+  never executed, directly beside the existing read-only-principle callout it already had.
+
+### Notes
+- No blocking defect was found. No source file under `src/` was modified in this phase.
+- Risk/Assessment logic (`RiskRuleEngine`, `MigrationPolicy`, `MigrationActionPlanner`,
+  `MigrationVerificationPlanner`, `MigrationAssessmentEngine`) was not touched, and the full
+  Analysis suite (460/460) confirms its behavior is unchanged from GUI-9B/GUI-10.
+- No execution capability exists anywhere in the codebase — reconfirmed by the real-machine scan
+  completing as a pure read operation and by every prior phase's own execution-safety tests
+  remaining green.
+- No new scanner was added — Windows Scheduled Task fully supported, Linux cron supported, Linux
+  systemd timers not supported, unchanged since GUI-9A.
+- ServerSleuth v1.0.0 is declared RELEASE READY — see the Final Acceptance Report delivered
+  alongside this entry for the full validation matrix. No GUI-11 or further feature-development
+  phase follows.
+
+## Unreleased (Release Packaging Hardening — v1.0.0)
+
+Release/build-script hardening only, per the phase's own scope — no product source under `src/`
+was touched (`ServerSleuth.exe`/`serversleuth-cli.exe`/`serversleuth` all still build from the
+exact same three unmodified entry points). Both scripts were run to completion, end to end, with
+real artifacts, on this machine (`build-release.ps1` for Windows GUI+CLI and the Linux CLI,
+`build-release.sh` for the Linux CLI on this session's POSIX/Git-Bash host).
+
+### Fixed — a real, pre-existing bug found and fixed while hardening
+- **`build-release.sh` read the wrong version.** `Directory.Build.props`'s own top-of-file
+  comment documents the old, inconsistent per-csproj version it replaced using the literal
+  example text `<Version>10.0.0</Version>`. The script's naive `grep -o '<Version>[^<]*</Version>'
+  | head -n1` matched that comment's example (grep lists matches in file order, and the comment
+  precedes the real `<PropertyGroup>`) instead of the real `<Version>1.0.0</Version>` property —
+  silently producing a release tagged `10.0.0` instead of `1.0.0` (reproduced live: `Release
+  version: 10.0.0` on an unmodified script run). `build-release.ps1` was never affected — it
+  parses the file as real XML (`[xml](Get-Content ...)`), and a proper XML parser correctly
+  ignores comment text. Fixed by anchoring the grep to `^[[:space:]]*<Version>...` (only
+  whitespace before the tag) — the real property element is alone on its own line, while the
+  comment's example is embedded mid-sentence, so the anchor disambiguates them without needing
+  multi-line XML-comment stripping. Re-run after the fix: `Release version: 1.0.0`, correct.
+
+### Added — version-consistency validation (both scripts)
+- `build-release.ps1`: a new "Verifying published executable versions" step reads both Windows
+  executables' `FileVersionInfo.ProductVersion` (no execution — safe for the GUI, which must
+  never be launched from an unattended script) and separately invokes the CLI with `--version`
+  (safe — it is a console app), comparing both against `Directory.Build.props`'s `$version`.
+  `ProductVersion` carries a `+<git-commit-sha>` SemVer build-metadata suffix the .NET SDK
+  appends automatically from source-control info (confirmed live:
+  `1.0.0+3a6cb48e067209bf902feaab14f8390a2163a29d`) — legitimate deterministic-build behavior, not
+  a defect, so only the part before `+` is compared, per SemVer's own rule that build metadata is
+  ignored in comparisons. The CLI's `--version` output is the 4-part `AssemblyVersion` (e.g.
+  `1.0.0.0`), compared via prefix match against the 3-part `Version` for the same reason — this
+  is standard .NET versioning, not something to "fix" in the script.
+- `build-release.sh`: an equivalent step invokes the freshly-published Linux binary with
+  `--version` and compares — but only when `uname -s`/`uname -m` confirm the host is genuinely
+  Linux x64. This script can run on any POSIX host capable of cross-publishing `-r linux-x64`
+  (including macOS or Linux ARM64), but a `linux-x64` ELF binary can only be *executed* directly
+  on a real Linux x64 host — attempting it elsewhere fails with a kernel "Exec format error", not
+  a build defect (reproduced live on this session's Windows/Git-Bash host). Everywhere else, the
+  check is skipped with an explicit message rather than failing the whole release build over a
+  check that could never have run there — avoiding exactly the "fragile logic" the hardening
+  task's own instructions warned against.
+- Both scripts: a final "Verifying version consistency across release artifacts" step
+  cross-checks the written `VERSION` file, both archive filenames, and both `README.txt` files
+  against `$version`/`$VERSION` — guaranteed by construction today (every value is interpolated
+  from the same variable), but now enforced so a future edit that breaks that guarantee fails the
+  build immediately instead of silently publishing inconsistent artifacts.
+
+### Added — SHA-256 checksum verification (both scripts)
+- `build-release.ps1`: after writing `SHA256SUMS.txt`, a new step re-parses the file and
+  independently recomputes each of the 5 listed artifacts' SHA-256, failing if any recomputed
+  hash disagrees with what was written.
+- `build-release.sh`: after updating its two Linux lines, a new step runs `sha256sum -c` scoped
+  to only those two lines (via the same `grep` pattern the script already uses to replace them) —
+  the Windows lines (from a prior Windows build, if present) are never touched or re-verified
+  here, preserving the script's existing "only ever update the Linux lines" contract. Verified
+  live: a full run correctly preserved 3 pre-existing Windows `SHA256SUMS.txt` lines from an
+  earlier `build-release.ps1` run while updating only its own 2 Linux lines, and a subsequent
+  `sha256sum -c` over the complete combined file confirmed all 5 entries.
+
+### Fixed — package content audit nested-path detection (`build-release.ps1` only)
+- The Windows ZIP audit's `'bin'`/`'obj'` patterns matched only a zip entry whose `FullName` was
+  the *exact* literal string `bin`/`obj` — a nested entry like `bin/foo.dll` would not have
+  matched. Added `'bin/*'`/`'obj/*'` patterns to catch that case. The Linux tar audit had the
+  same gap for a different reason: it compared each extracted file's leaf `.Name` only (e.g.
+  `foo.dll`), which can never equal `bin`/`obj`/`bin/*`/`obj/*` regardless of nesting — changed to
+  compare the file's path relative to the extraction root (forward-slash-normalized, matching the
+  zip entries' own separator), so the same patterns now work identically for both archives. Not
+  presently reachable by construction (only the single real executable is ever copied into the
+  staging directories that get archived — see the existing "step 6" comment), so this is
+  defense-in-depth, not a fix for an artifact that has ever actually shipped.
+
+### Verified — no change needed
+- Self-contained/single-file publishing (`--self-contained true`, `PublishSingleFile=true`,
+  `IncludeNativeLibrariesForSelfExtract=true`, `PublishTrimmed=false`), the RIDs
+  (`win-x64`/`linux-x64`), and the `net8.0-windows`/`net8.0` TFM split were all preserved
+  unchanged — confirmed by three full, real `dotnet publish` runs in this session producing
+  correctly self-contained artifacts (Windows GUI 160.20 MB, Windows CLI 71.82 MB, Linux CLI
+  70.22 MB) with no forbidden development artifact in either archive.
+- Release-directory hygiene: both scripts already `Remove-Item -Recurse -Force`/`rm -rf` only
+  their own intended staging (`obj/release-publish-staging/...`) and output (`release/windows`,
+  `release/linux`, or the whole `release/` root in the Windows script's case) directories — never
+  an arbitrary repository path. Unchanged; re-confirmed by two consecutive full runs of each
+  script in this session producing a correct, non-stale result both times (the second
+  `build-release.ps1` run, after the version-check fix, cleanly re-published over the first run's
+  now-known-broken output; `build-release.sh` was run twice in a row with identical clean
+  results) — the reproducibility this phase's own acceptance criteria ask for.
+- Shared README template (§11 of the hardening instructions): the two scripts' README bodies
+  overlap by one shared paragraph (~6 lines of "strictly READ-ONLY..." prose,
+  already centralized as a single `$commonNotes` PowerShell variable reused for both the Windows
+  and Linux README within `build-release.ps1` itself). Introducing a separate
+  `release/README-template.txt` file would not reduce this further — each script would still need
+  its own templating/substitution code, plus a new failure mode ("template file not found") and
+  cross-platform path handling. Decision: do not introduce one — the existing duplication is one
+  short paragraph, low-risk, and already partially centralized; a shared file adds more moving
+  parts than it removes, exactly the case the hardening instructions say to skip.
+- README/product wording: already correct going into this phase (verified during Final
+  Acceptance) — describes ServerSleuth as read-only discovery/migration-assessment, names the
+  concrete inventory categories, and states Migration Preparation intents are descriptive only.
+  No wording change was needed.
+
+### Notes
+- No product source file under `src/` was modified. No scanner, Risk logic, Migration logic, GUI
+  feature, or execution capability was added or changed — this phase touched only
+  `build-release.ps1`/`build-release.sh`.
+- Version remains `1.0.0` — no patch bump, since no released artifact required one; this phase
+  only hardened the process that produces artifacts, per the phase's own explicit instruction not
+  to increment the version merely for script hardening.

@@ -60,12 +60,11 @@ public static class ReportArtifactFactory
     }
 
     /// <summary>
-    /// GUI-8C overload — produces an inventory-first HTML report by passing the full
-    /// <paramref name="pipeline"/>'s discovery data to <see cref="HtmlReportRenderer"/> so it
-    /// can render nine entity-type sections before the risk/migration sections. The JSON report
-    /// uses <c>pipeline.Report</c> as before (existing JSON schema is forward-extended with
-    /// optional inventory lists). Both artifacts are rendered from the same in-memory data;
-    /// no second analysis pass is performed.
+    /// GUI-8C overload, extended by GUI-9A — passes the full <paramref name="pipeline"/>'s
+    /// discovery data to both <see cref="HtmlReportRenderer"/> (nine entity-type sections
+    /// before the risk/migration sections) and <see cref="JsonReportRenderer"/> (the same nine
+    /// inventory list fields on the JSON contract). Both artifacts are rendered from the same
+    /// in-memory data; no second analysis pass is performed.
     /// </summary>
     public static ReportBundle CreateBundle(ScanPipelineResult pipeline, string? filePrefix = null)
     {
@@ -74,7 +73,10 @@ public static class ReportArtifactFactory
         var jsonFileName = filePrefix is null ? DefaultJsonFileName : $"{filePrefix}.json";
         var htmlFileName = filePrefix is null ? DefaultHtmlFileName : $"{filePrefix}.html";
 
-        var jsonResult = new JsonReportRenderer().Render(pipeline.Report);
+        var jsonResult = new JsonReportRenderer(
+            discovery: pipeline.Discovery,
+            boundaries: pipeline.Boundaries,
+            externalDependencies: pipeline.ExternalDependencies).Render(pipeline.Report);
         var htmlResult = new HtmlReportRenderer(
             discovery: pipeline.Discovery,
             boundaries: pipeline.Boundaries,

@@ -3,6 +3,7 @@ using ServerSleuth.Analysis.Correlation.Validation;
 using ServerSleuth.Analysis.Migration.Actions;
 using ServerSleuth.Analysis.Migration.Consolidation;
 using ServerSleuth.Analysis.Migration.Models;
+using ServerSleuth.Analysis.Migration.Preparation;
 using ServerSleuth.Analysis.Migration.Verification;
 using ServerSleuth.Core.Boundaries;
 using ServerSleuth.Core.Evidence;
@@ -54,23 +55,35 @@ internal static class ReportDtoMapper
     {
         var base64Dto = ToDto(report);
 
-        // Build entity-id → first application name lookup from boundary membership.
-        // Iterating the list (not a dictionary) for determinism; the inner scan is O(N·M)
-        // but discovery sets are small enough that this is never a bottleneck.
-        var appNameByEntityId = new Dictionary<string, string>(StringComparer.Ordinal);
+        // Build entity-id → every claiming application-boundary-name lookup, in first-encountered
+        // order, from boundary membership. Iterating the list (not a dictionary) for determinism;
+        // the inner scan is O(N·M) but discovery sets are small enough that this is never a
+        // bottleneck. GUI-9B: names[0] preserves the exact GUI-8C/9A "first boundary wins"
+        // ApplicationName value unchanged; the full (sorted) list is the new ApplicationNames.
+        var appNamesByEntityId = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         foreach (var boundary in boundaries)
         {
             foreach (var memberId in boundary.MemberEntityIds)
             {
-                if (!appNameByEntityId.ContainsKey(memberId))
+                if (!appNamesByEntityId.TryGetValue(memberId, out var names))
                 {
-                    appNameByEntityId[memberId] = boundary.Name;
+                    appNamesByEntityId[memberId] = names = [];
+                }
+
+                if (!names.Contains(boundary.Name, StringComparer.Ordinal))
+                {
+                    names.Add(boundary.Name);
                 }
             }
         }
 
         string? AppName(string entityId) =>
-            appNameByEntityId.TryGetValue(entityId, out var name) ? name : null;
+            appNamesByEntityId.TryGetValue(entityId, out var names) && names.Count > 0 ? names[0] : null;
+
+        IReadOnlyList<string> AppNames(string entityId) =>
+            appNamesByEntityId.TryGetValue(entityId, out var names)
+                ? names.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList()
+                : [];
 
         InventoryEntityDto BaseDto(DiscoveryEntity e, string entityType) => new()
         {
@@ -82,12 +95,13 @@ internal static class ReportDtoMapper
             Path = e.Path,
             Status = e.Status == Core.Enums.EntityStatus.Unknown ? null : e.Status.ToString(),
             Publisher = e.Publisher,
-            ApplicationName = AppName(e.Id)
+            ApplicationName = AppName(e.Id),
+            ApplicationNames = AppNames(e.Id)
         };
 
         var entities = discovery.Entities;
 
-        return base64Dto with
+        var inventoryDto = base64Dto with
         {
             DllBinaries = entities.OfType<Dll>()
                 .OrderBy(e => e.Name, StringComparer.OrdinalIgnoreCase).ThenBy(e => e.Id, StringComparer.Ordinal)
@@ -163,10 +177,30 @@ internal static class ReportDtoMapper
                     EntityType = "ExternalDependency",
                     Status = e.Status == Core.Enums.EntityStatus.Unknown ? null : e.Status.ToString(),
                     ApplicationName = AppName(e.Id),
+                    ApplicationNames = AppNames(e.Id),
                     Kind = e.Kind,
                     Endpoint = e.Endpoint
                 }).ToList()
         };
+
+        // GUI-9B/GUI-10: computed only from the inventory lists just built above (plus
+        // Applications' own Count) — never from report.ServerLevelIssues/Actions/
+        // PreMigrationChecks or any other Risk/Assessment field (skill.md GUI-9B §1, §7, §11).
+        var categoryCounts = new (string Category, int Count)[]
+        {
+            (MigrationIntentCatalog.ApplicationCategory, inventoryDto.Applications.Count),
+            ("Dll", inventoryDto.DllBinaries.Count),
+            ("Runtime", inventoryDto.Runtimes.Count),
+            ("Service", inventoryDto.Services.Count),
+            ("ComComponent", inventoryDto.ComComponents.Count),
+            ("Software", inventoryDto.Software.Count),
+            ("ScheduledTask", inventoryDto.ScheduledTasks.Count),
+            ("Certificate", inventoryDto.Certificates.Count),
+            ("Configuration", inventoryDto.Configurations.Count),
+            ("ExternalDependency", inventoryDto.ExternalConnections.Count)
+        };
+
+        return inventoryDto with { MigrationPreparation = MigrationPreparationSummaryBuilder.Build(categoryCounts) };
     }
 
     private static ServerSummaryDto ToDto(ServerMigrationSummary s) => new()

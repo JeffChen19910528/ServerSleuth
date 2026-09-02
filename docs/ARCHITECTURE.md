@@ -2207,6 +2207,397 @@ and Application Detail pages), no execution/deployment/remote-operation capabili
 
 This is the final GUI feature phase; no GUI-9 or further feature phase follows.
 
+## Phase GUI-9A Addendum — Inventory Data Pipeline & Scheduler Audit (as built)
+
+**Goal:** A real 102-application scan (`release/windows/report.json`) showed all nine inventory
+arrays empty in the exported JSON despite 19,104 issues/17,978 actions/37,451 checks being present.
+This phase is a full Scanner → `DiscoveryEntity` → `AggregateDiscoveryResult` →
+`ApplicationBoundary` → `ScanPipelineResult` → `ServerMigrationAssessmentReport` →
+`ReportDtoMapper` → JSON/HTML → GUI data-flow audit, plus the smallest additive fix. It is not a
+GUI phase: no new page, scanner, or Risk UI was added.
+
+**Audit findings, category by category:**
+
+| Category | Scanner status | Where the data was already correct | Where it stopped |
+|---|---|---|---|
+| DLL/Binary, Runtime, Service, COM, Software, Certificate, Configuration | Discovered correctly by existing `ServerSleuth.Windows`/`ServerSleuth.Linux` scanners | `AggregateDiscoveryResult.Entities`, `ReportDtoMapper.ToDto(report, discovery, boundaries, externalDeps)` (GUI-8C) | JSON renderer never received `discovery`/`boundaries`/`externalDeps` |
+| Scheduled Task (Windows) | `WindowsScheduledTaskScanner` — fully populated `Core.Models.ScheduledTask` (see below) | same as above | same as above |
+| Scheduled Task (Linux/cron) | `LinuxScheduledTaskScanner` — fully populated, same `ScheduledTask` model | same as above | same as above |
+| External Connection | `ExternalDependency` list on `ScanPipelineResult` (Phase 5C `DependencyExpansionEngine`) | same as above | same as above |
+
+Every category's root cause was identical and singular — classification (C) "DiscoveryEntity data
+exists but is not mapped," localized to exactly two call sites:
+
+1. `JsonReportRenderer` (`ServerSleuth.Reporting/Json/`) had no constructor parameters to accept
+   discovery/boundary/external-dependency data at all — unlike `HtmlReportRenderer`, which GUI-8C
+   already extended this way. Its `Render` method always called the report-only
+   `ReportDtoMapper.ToDto(report)` overload.
+2. `ServerSleuth.Cli.Pipeline.ReportExportRunner.Export` took only
+   `ServerMigrationAssessmentReport report` (not the full `ScanPipelineResult`), so even after
+   fixing (1), the CLI — the actual code path behind `release/windows/report.json` — had already
+   discarded `Discovery`/`Boundaries`/`ExternalDependencies` before `ReportArtifactFactory` was
+   ever reached. `ScanCommand.RunAsync` called `ReportExportRunner.Export(pipelineResult.Report,
+   options)`, dropping the rest of `pipelineResult`.
+
+The GUI export path (`GuiReportExportService.ExportReport`) already passed the full
+`ScanPipelineResult` into `ReportArtifactFactory.CreateBundle(ScanPipelineResult, ...)` since
+GUI-8C, so GUI-driven HTML exports were never affected — only the CLI's JSON output, and any JSON
+produced via the bundle's JSON side, were.
+
+**What changed:**
+
+- **`JsonReportRenderer`** — three new optional constructor parameters, mirroring
+  `HtmlReportRenderer` exactly: `AggregateDiscoveryResult? discovery`,
+  `IReadOnlyList<ApplicationBoundary>? boundaries`, `IReadOnlyList<ExternalDependency>?
+  externalDependencies`. When all three are supplied, `Render` uses the existing
+  `ReportDtoMapper.ToDto(report, discovery, boundaries, externalDeps)` overload (unchanged, added
+  in GUI-8C) instead of `ToDto(report)`. Omitting them reproduces the exact prior byte-for-byte
+  JSON — fully backward compatible. No new mapping code was written; `ReportDtoMapper` was reused
+  as-is.
+- **`ReportArtifactFactory.CreateBundle(ScanPipelineResult pipeline, ...)`** — now constructs
+  `JsonReportRenderer` with `pipeline.Discovery`/`pipeline.Boundaries`/
+  `pipeline.ExternalDependencies`, the same values already passed to `HtmlReportRenderer`. The
+  `CreateBundle(ServerMigrationAssessmentReport)` overload (used by tests/fixtures without a full
+  pipeline) is untouched.
+- **`ReportExportRunner.Export`** — signature changed from `(ServerMigrationAssessmentReport
+  report, ScanOptions options)` to `(ScanPipelineResult pipelineResult, ScanOptions options)`, and
+  now calls `ReportArtifactFactory.CreateBundle(pipelineResult, ...)` instead of the
+  report-only overload. `ScanCommand.RunAsync` updated to pass `pipelineResult` directly.
+
+**Windows Scheduled Task discovery — audit result (no code change needed):**
+`WindowsScheduledTaskScanner` (`ServerSleuth.Windows/ScheduledTasks/`, Task Scheduler 2.0 COM API)
+already captures, per task: Name, Folder (parsed from `\`-delimited Path), primary Trigger type,
+primary Action (the `Execute` action's path, or its type if no path), RunAsAccount (`UserId`),
+Enabled, NextRun, Status (Running vs. Configured), plus rich `Metadata` (State, Hidden, Author,
+redacted Description, RunLevel, LastRunTime, LastTaskResult, ExecutionTimeLimit, and per-action/
+per-trigger detail including arguments, working directory, and script-path extraction with
+file-existence verification). This already satisfies every field the audit asked to confirm.
+`ScheduledTaskRunsBinaryRule` (`ServerSleuth.Analysis/Correlation/Rules/`) already correlates a
+task's Execute action to a discovered binary via the existing dependency graph, and that edge
+already flows into `ApplicationBoundary.MemberEntityIds` through the existing correlation/boundary
+engine — attribution was never inferred from task name alone, and nothing here changed.
+
+**Linux scheduler — audit result (Supported / Not Supported), no scanner added:**
+- **cron: Supported.** `LinuxScheduledTaskScanner` (`ServerSleuth.Linux/Cron/`) reads
+  `/etc/crontab`, every file under `/etc/cron.d`, the four `/etc/cron.{hourly,daily,weekly,monthly}`
+  run-parts directories, and user crontabs from both the Debian (`/var/spool/cron/crontabs`) and
+  RHEL (`/var/spool/cron`) layouts — producing the same `Core.Models.ScheduledTask` entity type
+  Windows tasks use (Folder = source file, Trigger = cron schedule expression, Action = resolved
+  executable path or redacted command, RunAsAccount = crontab user). Secret-shaped command
+  arguments are redacted via `ISecretRedactor` before being stored.
+- **systemd timers (`*.timer` units): Not Supported.** `ServerSleuth.Linux/Systemd/` only contains
+  `LinuxSystemdServiceScanner` (services), not a timer-unit reader. This is a genuine capability
+  gap, not a wiring bug — documented here rather than implemented, since it is not the root cause
+  of the reported empty-inventory issue and adding a new scanner was explicitly out of this phase's
+  scope (§4/§5 of the GUI-9A instructions: "Do NOT implement a new scanner in this phase unless it
+  is proven necessary").
+
+**Tests added:**
+- `JsonReportRendererInventoryTests.cs` (6 tests, `ServerSleuth.Reporting.Tests`) — real discovered
+  entities (`Dapper.dll`, a `Nightly` scheduled task) appear in the JSON's `DllBinaries`/
+  `ScheduledTasks`; all nine inventory fields are always emitted as arrays; categories with zero
+  discovered entities stay empty (no fabrication); omitting the new `JsonReportRenderer`
+  constructor parameters keeps all nine fields empty (backward compatible); `Configurations`
+  entries never carry `SecretDetected`/`RawContent`/`Content`.
+- `ScanCommandInventoryExportTests.cs` (2 tests, `ServerSleuth.Cli.Tests`) — the CLI's real
+  exported `report.json` (via the actual `scan` command and the existing 17-entity ERP fixture)
+  contains non-empty `DllBinaries`/`Services`/`ScheduledTasks`/`Runtimes`/`Certificates`/
+  `Configurations`, including the real `BatchC` scheduled task by name; JSON and HTML agree on
+  inventory presence.
+
+**What was not changed:** No scanner (Windows, Linux, or otherwise), `IDiscoveryScanner`,
+`CorrelationEngine`, `ApplicationBoundaryEngine`, `DependencyExpansionEngine`, `RiskRuleEngine`,
+`MigrationAssessmentEngine`, `MigrationPlanEngine`, or `MigrationPolicy` was touched — Risk and
+Migration classification logic is byte-for-byte unchanged. No new execution capability was added;
+this phase only changed which already-collected, read-only discovery data reaches the existing
+JSON serializer. `ServerSleuth.Gui` source was not touched — no new page, navigation, chart, or
+Risk UI element of any kind.
+
+This phase is an audit and pipeline-wiring fix, not a GUI feature phase — no GUI-9B/9C or further
+GUI redesign was started as part of it.
+
+## Phase GUI-9B Addendum — Migration Inventory Foundation (as built)
+
+**Goal:** Correct the product hierarchy to DISCOVER → INVENTORY → CORRELATE → MIGRATION
+PREPARATION (Risk/Assessment secondary), per the reviewed and approved GUI-9B architecture
+proposal. Backend/data-model foundation only — no GUI change, no new scanner, no Risk-engine
+change.
+
+**Why the existing Action/Check machinery could not be reused (the core finding this phase acts
+on):** `MigrationActionPlanner.Plan` (`Actions/MigrationActionPlanner.cs`) iterates
+`ServerMigrationAssessment.Issues` only — an entity with zero Risk findings produces zero
+`MigrationAction`. GUI-8C's own "Migration Checklist" already worked around this by hard-coding a
+category-level vocabulary independently in three places (`HtmlReportRenderer`,
+`ApplicationDetailView.xaml`, `LocalizedStrings`) rather than deriving it from Actions — this phase
+formalizes that inventory-derived approach as one small, explicit, testable model instead of three
+duplicated hard-coded copies, and extends it into the JSON contract (which had no such model at
+all before this phase).
+
+**What changed:**
+
+- **`MigrationIntent`** (`ServerSleuth.Reporting/Json/Dto/MigrationIntent.cs`) — a closed seven-
+  value enum (`Deploy`, `Install`, `Create`, `Register`, `Configure`, `Verify`, `Review`). Purely
+  descriptive; nothing in the codebase ever executes any of these.
+
+- **`MigrationIntentCatalog`** (`ServerSleuth.Reporting/Json/Dto/MigrationIntentCatalog.cs`) — the
+  single source of truth for category → `MigrationIntent[]`, keyed by the exact
+  `InventoryEntityDto.EntityType` strings `ReportDtoMapper` already assigns (`"Dll"`, `"Runtime"`,
+  `"Service"`, `"ComComponent"`, `"Software"`, `"ScheduledTask"`, `"Certificate"`,
+  `"Configuration"`, `"ExternalDependency"`), plus `ApplicationCategory = "Application"` for the
+  `Applications` collection. A pure static `Dictionary` lookup — no pipeline, no Risk reference; a
+  dedicated test scans this file's own source text for forbidden type names
+  (`RiskFinding`/`MigrationIssue`/`MigrationAction`/`RiskSeverity`/etc.) as a static-analysis guard
+  on top of the runtime behavioral test.
+
+- **`MigrationPreparationSummary`/`MigrationIntentCount`/`MigrationPreparationSummaryBuilder`**
+  (`ServerSleuth.Reporting/Json/Dto/MigrationPreparationSummary.cs`) — `Build(ServerReportDto)`
+  reads only `.Count` on the already-populated `Applications` and nine inventory lists, applies
+  `MigrationIntentCatalog`, and sums per intent. `TotalInventoryCount` (entities) and
+  `IntentCounts` (required preparation intents, always all seven present, zero when unused — e.g.
+  `Review` today) are deliberately different numbers: one `Service` entity contributes +1 to
+  `Create`, `Configure`, and `Verify` simultaneously, by design (skill.md GUI-9B §8) — a test
+  proves this is not mistaken for three entities. `ServerReportDto.MigrationPreparation` (new
+  field) defaults to `MigrationPreparationSummary.Empty`, mirroring the nine inventory lists'
+  existing empty-by-default rule for the report-only `ToDto(report)` overload.
+
+- **`InventoryEntityDto.ApplicationNames`** (new, additive `IReadOnlyList<string>`, default `[]`)
+  — every application boundary that claims an entity, sorted OrdinalIgnoreCase. `ApplicationName:
+  string?` is preserved exactly as GUI-8C/GUI-9A defined it (first boundary encountered, in
+  original iteration order) for backward compatibility — `ReportDtoMapper`'s attribution loop was
+  changed from "keep only the first name per entity id" to "keep every name per entity id, in
+  encounter order," with `AppName` reading index 0 (unchanged value) and the new `AppNames`
+  returning the full sorted list. A shared entity is never duplicated — it still appears exactly
+  once in whichever `InventoryEntityDto` list it belongs to; sharing is expressed only through
+  `ApplicationNames` having 2+ entries.
+
+- **`HtmlReportRenderer.AppendMigrationChecklist`** — now sources each row's action text via
+  `MigrationIntentCatalog.IntentsFor(category)` joined with `" / "`, instead of a local hard-coded
+  string per category. Table structure, columns, and the "omit categories with zero items" rule
+  are unchanged; the *wording* intentionally changed for four rows to match the newly approved
+  mapping: DLL/Binary `"Copy"` → `"Deploy / Verify"`; Installed Software
+  `"Install / Review / Verify"` → `"Install / Verify"`; Configuration `"Configure / Verify"` →
+  `"Create / Configure / Verify"`; External Connections `"Verify / Review"` →
+  `"Configure / Verify"`. A new regression test locks in the exact new wording.
+
+**Application → Component correlation and shared-component handling (§6, §7 of the proposal):** no
+new mechanism — reused `ApplicationBoundary.MemberEntityIds` exactly as `ReportDtoMapper` and
+`ApplicationComponentsViewModel` already did. The only change was making the *report-level* view
+stop discarding all but the first claiming boundary.
+
+**Scheduled tasks (§8, §12):** untouched. Windows Scheduled Task discovery remains fully supported,
+Linux cron remains supported, Linux systemd timers remain not supported — GUI-9A's findings are
+unchanged; `ScheduledTask` entities now participate in `MigrationIntentCatalog`
+(`"ScheduledTask" → Create, Configure, Verify`) and `ApplicationNames` exactly like every other
+category, with no scanner or correlation change required.
+
+**Tests added:**
+- `MigrationIntentCatalogTests.cs` (15 tests) — the approved mapping per category; unknown
+  category → empty; determinism; no per-category duplicate intents; no category currently maps to
+  `Review`; a source-file scan proving no Risk/Assessment type is referenced.
+- `MigrationPreparationSummaryTests.cs` (8 tests) — all-zero on empty discovery; all seven intents
+  always present; one entity contributing to multiple intents distinguished from multiple
+  entities; cross-category Verify summation; determinism; **byte-identical summary for a healthy
+  vs. Risk-flagged entity** (the strongest proof of "inventory-derived, not Risk-derived"); backward
+  compatibility when inventory parameters are omitted.
+- `ApplicationAttributionTests.cs` (4 tests) — zero/one/two/three real boundary-membership cases
+  (via `ApplicationContainsBinaryRule`'s `ReferencedByEntityIds`, never inferred from names); a
+  shared entity still appears exactly once in server-level inventory; deterministic `ApplicationNames`
+  ordering regardless of discovery/boundary construction order.
+- `InventoryCompletenessTests.cs` (28 tests) — parameterized `[0, 1, 3]` synthetic counts across all
+  nine categories, source count vs. report count, plus a combined all-zero check. No hard-coded
+  ERP/QINV values, per the phase's explicit instruction.
+- `ScanCommandInventoryExportTests.ExportedJsonReport_MigrationPreparationIsComputedFromRealInventory`
+  — real-data acceptance against the existing 17-entity ERP fixture through the actual `scan`
+  command: non-zero `MigrationPreparation`, and the fixture's real shared executable
+  (BatchA/BatchB/BatchC → `host.exe`) shows non-empty `ApplicationNames`.
+- `HtmlReportRendererInventoryFirstTests`: `MigrationChecklistSection_UsesOnlyApprovedActionVocabulary`
+  updated (`"Deploy"` removed from the forbidden-word list — now an approved descriptive intent;
+  `"Execute"`/`"Delete"`/`"Uninstall"` remain forbidden, so "never execute" stays fully enforced);
+  new `MigrationChecklistSection_ActionTextMatchesCentralizedIntentCatalog` locks in the exact new
+  checklist wording.
+
+**What was not changed:** No scanner, `IDiscoveryScanner`, `CorrelationEngine`,
+`ApplicationBoundaryEngine`, `DependencyExpansionEngine`, `RiskRuleEngine`, `MigrationPolicy`,
+`MigrationActionPlanner`, `MigrationVerificationPlanner`, `MigrationAssessmentEngine`,
+`MigrationPlanEngine`, or `ServerMigrationAssessmentReport` was touched — Risk/Action/Check
+behavior and counts are unchanged (re-confirmed by the full Analysis suite passing unmodified,
+445/445). No `ServerSleuth.Gui` file was touched — `ApplicationNames`/`MigrationPreparation` exist
+in the JSON contract for a future GUI phase to consume, but nothing in the GUI reads them yet. No
+execution capability was added anywhere.
+
+This phase is backend/data-model only; no GUI-9C or further GUI phase was started as part of it.
+
+## Phase GUI-10 Addendum — Migration Preparation UI (as built) — FINAL FEATURE DEVELOPMENT PHASE
+
+**Goal:** Make the product hierarchy DISCOVER → INVENTORY → CORRELATE → MIGRATION PREPARATION
+visible in the GUI itself, consuming GUI-9B's data without recalculating or duplicating it. Final
+product-facing feature phase — after this, only final acceptance/v1.0 hardening remains.
+
+**A required relocation, not scope creep:** `MigrationIntentCatalog`/`MigrationPreparationSummary`/
+`MigrationPreparationSummaryBuilder` (GUI-9B) lived in `ServerSleuth.Reporting.Json.Dto`.
+`NoDirectPlatformAccessTests` (`test/ServerSleuth.Gui.Tests/Architecture/`) already asserts, at the
+compiled-assembly-reference level, that `ServerSleuth.Gui`/`ServerSleuth.Gui.Contracts` reference
+nothing beyond `Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost` among `ServerSleuth.*`
+assemblies — `ServerSleuth.Reporting` is explicitly forbidden. This made "the GUI consumes
+GUI-9B's catalog/builder directly, GUI-10 §12: do not duplicate them" and "the GUI never
+references Reporting, GUI-9B/GUI-1's own Critical Dependency Rule" mutually incompatible without
+first moving the shared vocabulary somewhere both sides could reach. They were relocated to
+`ServerSleuth.Analysis.Migration.Preparation` (Analysis has been an allowed GUI dependency since
+GUI-1) with zero mapping/behavior change — `MigrationIntentCatalog`'s category→intent table is
+byte-for-byte identical; only `MigrationPreparationSummaryBuilder.Build`'s parameter type changed,
+from a Reporting-specific `ServerReportDto` to plain `IEnumerable<(string Category, int Count)>`,
+so `ReportDtoMapper` and `MigrationOverviewViewModel` now call the exact same method against their
+own already-computed counts. `MigrationIntentCount.Intent` changed from a pre-stringified `string`
+to the `MigrationIntent` enum itself — JSON output is unaffected, since `JsonReportRenderer`'s
+existing `JsonStringEnumConverter` still serializes it as the same string name.
+
+**What changed:**
+
+- **`ServerSleuth.Analysis/Migration/Preparation/`** (new folder) — `MigrationIntent.cs`,
+  `MigrationIntentCatalog.cs`, `MigrationPreparationSummary.cs`, moved verbatim (mapping
+  unchanged) from `ServerSleuth.Reporting/Json/Dto/` (deleted there), with the builder
+  generalized as above.
+
+- **`MigrationOverviewViewModel`** — new `PreparationSummary`
+  (`Analysis.Migration.Preparation.MigrationPreparationSummary`), `HasAnyPreparation`, and seven
+  per-intent count properties (`DeployCount` … `ReviewCount`), built once in the constructor by
+  calling `MigrationPreparationSummaryBuilder.Build` against server-wide, unfiltered per-category
+  counts: `pipeline.Discovery.Entities.OfType<T>().Count()` for the nine inventory categories (the
+  identical idiom `DashboardOverviewViewModel`'s `*EntityCount` properties already use) plus
+  `Report.ApplicationAssessments.Count` for the Application category. Deliberately NOT built from
+  the existing per-application `Total*Count` sums (GUI-8C) — those intentionally double-count a
+  shared entity once per application boundary it belongs to (correct for "how many components does
+  each application need"), whereas the preparation summary must count each distinct server-wide
+  entity exactly once (skill.md GUI-10 §5, §11) — verified by a test showing a shared entity yields
+  `TotalServiceCount = 2` (per-application) but `PreparationSummary.TotalInventoryCount` counting it
+  once.
+
+- **`MigrationView.xaml`** — a new "Migration Preparation" card, positioned after the existing
+  Migration Checklist (inventory counts) card and before the Migration Summary (status) card:
+  seven stat tiles matching the existing card's own visual language (`WrapPanel` of small
+  `StackPanel`s, each hidden individually at zero via the existing `CountToVisibility` converter),
+  plus explanatory `Migration.PreparationSummary` text making explicit that these are preparation
+  actions, not risk findings and not commands that execute, and that one discovered item may
+  require more than one action (skill.md GUI-10 §4, §5, §14).
+
+- **`InventoryDetailViewModel`** — six new `ScheduledTask`-specific properties
+  (`ScheduledTaskFolder`/`Trigger`/`Action`/`RunAsAccount`/`Enabled`/`NextRun`) plus
+  `IsScheduledTask`, populated via a simple `entity is ScheduledTask task` check in the
+  constructor — the exact same type-specific-optional-field pattern `InventoryEntityDto`/
+  `ReportDtoMapper` already use for their own type-specific fields. This closes a real,
+  previously-existing gap: the panel only ever rendered base `DiscoveryEntity` fields plus the raw
+  `Metadata` dictionary, and neither `WindowsScheduledTaskScanner` nor `LinuxScheduledTaskScanner`
+  puts Folder/Trigger/Action/RunAsAccount/Enabled/NextRun into `Metadata` — they are typed
+  properties on `ScheduledTask` itself, so a user selecting a scheduled task in the Inventory
+  Explorer could not previously see its trigger, action, run-as account, or next-run time at all.
+  `null` for every non-`ScheduledTask` entity — never fabricated. No scanner was touched.
+
+- **`InventoryDetailView.xaml`** — a new "Scheduled Task Details" section rendering the six fields
+  above, visible only when `IsScheduledTask` is true; a Linux cron-sourced `ScheduledTask` (same
+  `Core.Models.ScheduledTask` type, `Source = "Cron"`) renders through the identical bindings with
+  no OS-specific branch anywhere in the view model or view (verified by a test).
+
+- **`LocalizedStrings.cs`** — `Migration.Preparation`, `Migration.PreparationSummary`, seven
+  `Migration.Intent.*` labels, six `InventoryDetail.ScheduledTask*` labels — English + Traditional
+  Chinese for all fourteen. Localization stayed a presentation-only concern of its callers, never
+  part of `MigrationIntentCatalog` itself (skill.md GUI-10 §4).
+
+**Investigation finding — Inventory/correlation/shared-component display was already correct:**
+`InventoryExplorerViewModel`/`InventoryDetailViewModel`/`InventoryItemViewModel` (GUI-6A) already
+show every discovered `DiscoveryEntity.Type` category with no hard-coded vocabulary; already build
+entity→application-boundary-name attribution directly from `ApplicationBoundary.MemberEntityIds`,
+keeping every claiming boundary rather than picking the first (its own doc comment: "a shared
+entity legitimately belonging to multiple boundaries keeps every one of them... never picks only
+the first"); already render an unclaimed entity as "Unassigned," never guessed; and
+`ApplicationComponentsViewModel` (GUI-8B) already correlates per-application components the same
+way. None of these needed a code change for GUI-10 §3/§6/§7 — this was verified by reading the
+existing implementation before writing any new code, per the GUI-10 instructions' own emphasis on
+reusing rather than re-implementing.
+
+**Scheduler capability — unchanged from GUI-9A:** Windows Scheduled Task fully supported, Linux
+cron supported, Linux systemd timers not supported. No scanner added or modified. No dedicated
+"systemd unsupported" UI indicator was added — the existing GUI-6A scanner-coverage-warning
+mechanism (`HasPartialCoverage`) already communicates scanner-level limitations generically, and
+because no systemd-timer scanner is registered at all, its absence cannot be fabricated or falsely
+claimed as supported; the simple absence of any `Source: "Systemd"` scheduled task item is itself
+the accurate representation.
+
+**Tests added:**
+- `MigrationIntentCatalogTests.cs` (15 tests, moved from `ServerSleuth.Reporting.Tests` to
+  `test/ServerSleuth.Analysis.Tests/Migration/`, unchanged in substance).
+- `MigrationPreparationTests.cs` (16 tests, `ServerSleuth.Gui.Tests`) — all-zero before any scan;
+  a Service entity contributes to Create/Configure/Verify, a DLL to Deploy/Verify (not Create);
+  `TotalInventoryCount` counts a shared entity once, contrasted explicitly with
+  `TotalServiceCount`'s intentional per-application double-count; the summary is identical
+  regardless of Risk-finding count (re-verifying GUI-9B's Risk-independence proof at the GUI
+  layer); `Review` stays zero under the current mapping; determinism; all fourteen new
+  localization keys present in both languages.
+- `InventoryScheduledTaskDetailTests.cs` (3 tests, `ServerSleuth.Gui.Tests`) — a Windows-shaped
+  `ScheduledTask` fixture surfaces all six fields; a non-`ScheduledTask` entity has all six fields
+  `null`; a Linux-cron-shaped `ScheduledTask` fixture surfaces identically with no OS-specific
+  branching.
+
+**What was not changed:** No scanner, `IDiscoveryScanner`, `CorrelationEngine`,
+`ApplicationBoundaryEngine`, `DependencyExpansionEngine`, `RiskRuleEngine`, `MigrationPolicy`,
+`MigrationActionPlanner`, `MigrationVerificationPlanner`, `MigrationAssessmentEngine`,
+`MigrationPlanEngine`, or `ServerMigrationAssessmentReport` was touched. No new top-level page,
+navigation entry, chart, heatmap, security score, or Risk severity indicator was added — the two
+new UI surfaces are both additions to existing pages using the existing stat-tile visual language.
+No execution capability was added anywhere; every `MigrationIntent` value remains a descriptive
+label only. `ServerSleuth.Gui`/`ServerSleuth.Gui.Contracts` still reference nothing beyond
+`Core`/`Analysis`/`Gui.Contracts`/`Gui.ExecutionHost` — re-verified: `NoDirectPlatformAccessTests`
+passes 5/5 unmodified, including the two tests that enumerate every `ServerSleuth.*` assembly
+reference by name.
+
+This is the final feature development phase per the GUI-10 instructions. No GUI-11 or further
+feature phase follows; the next step is final acceptance / v1.0.
+
+## Final Acceptance Addendum — v1.0.0 Release Readiness
+
+Validation-only phase. No architecture changed; this addendum records what was verified, since
+no other addendum in this document covers it.
+
+**Method:** full solution build; full regression suite; targeted re-run of every security-relevant
+test class; a genuine, non-synthetic real-machine scan via `dotnet run --project
+src/ServerSleuth.Cli -- scan` (not the ERP fixture) to exercise the complete
+Discovery→ScanPipelineResult→ReportDtoMapper→JSON path end to end against real Windows Task
+Scheduler/registry/filesystem data; inspection of `build-release.ps1`/`.sh` and
+`Directory.Build.props` for release-packaging correctness.
+
+**Result:** the real scan (35,020 discovered entities, 102 applications) produced a `report.json`
+with every one of the nine inventory categories populated (18,161 DLLs, 326 Services, 14,204 COM
+components, 80 Software, 213 Scheduled Tasks, 68 Certificates, 1,508 Configurations, 252 External
+Connections, 14 Runtimes), a `MigrationPreparation` summary whose numbers check out arithmetically
+against those category counts (`Verify` = 34,928 = `TotalInventoryCount`; `Deploy` = 18,161 = DLL
+count; `Register` = 14,204 = COM count; `Review` = 0, matching the current mapping's prediction),
+zero occurrences of `SecretDetected`/`RawContent`/`Content`/`Password`/`Credential` across all
+1,508 real `Configuration` entries, and one genuine multi-application-shared entity
+(`rundll32.exe`, referenced by 11 distinct Windows Scheduled Task boundaries) with
+`ApplicationNames` correctly listing all of them — real-world confirmation of the exact GUI-9B/
+GUI-10 attribution behavior, not only its synthetic-fixture tests. The scan output was inspected
+and then deleted (a temporary local artifact, never committed).
+
+**One test finding, classified non-blocking:**
+`MainViewModelResultsNavigationTests.ViewResults_AfterACompletedScan_ShowsTheRealResultsDashboardViewModel`
+failed deterministically (3/3) in this environment. Isolation procedure: reproduced identically
+(3/3) on a completely unmodified `master` checkout via `git stash -u` (which, unlike a plain
+`git stash`, also stashes untracked files — necessary here because GUI-9A/9B/10 added new,
+until-then-untracked source files that would otherwise have kept building against the "old"
+production code during the isolation check). This proves the failure predates GUI-9A/9B/10
+entirely and is an environment-specific sensitivity in that test's own 5-second `WaitUntilAsync`
+poll loop around a fake async executor — not a regression from any phase, and not classified as a
+release blocker under the Final Acceptance blocking-defect rule (no discovery/inventory/
+attribution/migration-preparation data is lost, fabricated, or duplicated; no real Windows/Linux
+workflow or release executable is affected). Not modified — the phase's own instructions
+explicitly forbid weakening a test to force a green result.
+
+**No source file under `src/` was modified in this phase** — only `README.md` (a factual
+completion-status correction) and the three `docs/` files this addendum, the matching
+`CHANGELOG.md` entry, and the `PROGRESS.md` row belong to.
+
+ServerSleuth v1.0.0 is declared RELEASE READY. No GUI-11 or further feature-development phase
+follows.
+
 ## Decisions Log
 
 | Decision | Rationale | Date |

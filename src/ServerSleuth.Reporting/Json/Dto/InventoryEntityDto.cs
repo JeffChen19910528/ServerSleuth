@@ -18,7 +18,22 @@ public sealed record InventoryEntityDto
     public string? Path { get; init; }
     public string? Status { get; init; }
     public string? Publisher { get; init; }
+
+    /// <summary>The first application boundary that claims this entity, or <c>null</c> if none
+    /// does — preserved exactly as GUI-8C/GUI-9A defined it, for backward compatibility. When an
+    /// entity is claimed by more than one boundary, this is simply the first one encountered;
+    /// see <see cref="ApplicationNames"/> for the complete set (GUI-9B).</summary>
     public string? ApplicationName { get; init; }
+
+    /// <summary>GUI-9B: every application boundary that claims this entity, sorted
+    /// (OrdinalIgnoreCase) — <c>[]</c> when unclaimed, one entry when claimed by exactly one
+    /// boundary (same application as <see cref="ApplicationName"/>), two or more when the entity
+    /// is legitimately shared. Never fabricated: sourced only from
+    /// <see cref="ServerSleuth.Core.Boundaries.ApplicationBoundary.MemberEntityIds"/>, the same
+    /// relationship <see cref="ApplicationName"/> already uses. The underlying entity is still
+    /// represented exactly once in the inventory list it appears in — sharing is expressed here,
+    /// never by duplicating the entity (skill.md GUI-9B §6).</summary>
+    public IReadOnlyList<string> ApplicationNames { get; init; } = [];
 
     // Service-specific
     public string? DisplayName { get; init; }

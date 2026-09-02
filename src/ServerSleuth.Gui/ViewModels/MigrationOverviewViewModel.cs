@@ -1,4 +1,7 @@
 using ServerSleuth.Analysis.Migration.Consolidation;
+using ServerSleuth.Analysis.Migration.Preparation;
+using ServerSleuth.Analysis.Orchestration;
+using ServerSleuth.Core.Models;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Navigation;
 using ServerSleuth.Gui.ViewModels.Results;
@@ -25,6 +28,7 @@ public sealed class MigrationOverviewViewModel : ObservableObject, IPageViewMode
         State = state;
         Report = state.PipelineResult?.Report;
         Applications = ApplicationRowViewModel.BuildFrom(state.PipelineResult);
+        PreparationSummary = BuildPreparationSummary(state.PipelineResult, Report);
 
         StartScanCommand = new RelayCommand(_ => StartScanRequested?.Invoke(this, EventArgs.Empty));
         SelectApplicationCommand = new RelayCommand(parameter =>
@@ -67,6 +71,57 @@ public sealed class MigrationOverviewViewModel : ObservableObject, IPageViewMode
         TotalConfigurationCount + TotalExternalConnectionCount;
 
     public bool HasAnyComponents => TotalComponentCount > 0;
+
+    // ----- GUI-10: MIGRATION PREPARATION — inventory-derived, built by the exact same
+    // MigrationIntentCatalog/MigrationPreparationSummaryBuilder GUI-9B built for the JSON/HTML
+    // reports (relocated to ServerSleuth.Analysis so both sides can share it without ServerSleuth.Gui
+    // ever referencing ServerSleuth.Reporting — see MigrationIntent.cs's own doc comment). Never
+    // recalculated here: this ViewModel only supplies already-computed, server-wide, unfiltered
+    // per-category counts (the same counts DashboardOverviewViewModel's own *EntityCount
+    // properties already compute the identical way) and lets the shared builder do the mapping.
+    //
+    // Deliberately NOT built from the per-application Total*Count sums above: those intentionally
+    // double-count a shared entity once per application boundary it belongs to, which is correct
+    // for "how many components does each application need" but wrong for "how many DISTINCT
+    // server-wide items must be prepared" — the same reasoning ReportDtoMapper already applied
+    // when it summed InventoryEntityDto list counts, not per-application sums (skill.md GUI-9B §8,
+    // GUI-10 §5, §11).
+    public MigrationPreparationSummary PreparationSummary { get; }
+
+    public bool HasAnyPreparation => PreparationSummary.TotalInventoryCount > 0;
+
+    public int DeployCount => PreparationCount(MigrationIntent.Deploy);
+    public int InstallCount => PreparationCount(MigrationIntent.Install);
+    public int CreateCount => PreparationCount(MigrationIntent.Create);
+    public int RegisterCount => PreparationCount(MigrationIntent.Register);
+    public int ConfigureCount => PreparationCount(MigrationIntent.Configure);
+    public int VerifyCount => PreparationCount(MigrationIntent.Verify);
+    public int ReviewCount => PreparationCount(MigrationIntent.Review);
+
+    private int PreparationCount(MigrationIntent intent) =>
+        PreparationSummary.IntentCounts.Single(i => i.Intent == intent).Count;
+
+    private static MigrationPreparationSummary BuildPreparationSummary(
+        ScanPipelineResult? pipeline, ServerMigrationAssessmentReport? report)
+    {
+        var entities = pipeline?.Discovery.Entities ?? [];
+
+        var categoryCounts = new (string Category, int Count)[]
+        {
+            (MigrationIntentCatalog.ApplicationCategory, report?.ApplicationAssessments.Count ?? 0),
+            ("Dll", entities.OfType<Dll>().Count()),
+            ("Runtime", entities.OfType<Runtime>().Count()),
+            ("Service", entities.OfType<Service>().Count()),
+            ("ComComponent", entities.OfType<ComComponent>().Count()),
+            ("Software", entities.OfType<Software>().Count()),
+            ("ScheduledTask", entities.OfType<ScheduledTask>().Count()),
+            ("Certificate", entities.OfType<Certificate>().Count()),
+            ("Configuration", entities.OfType<Configuration>().Count()),
+            ("ExternalDependency", pipeline?.ExternalDependencies.Count ?? 0)
+        };
+
+        return MigrationPreparationSummaryBuilder.Build(categoryCounts);
+    }
 
     // ----- MIGRATION SUMMARY — copied verbatim from ServerMigrationSummary, never recomputed. -----
     public int BlockedApplicationCount => Report?.ServerSummary.BlockedApplicationCount ?? 0;

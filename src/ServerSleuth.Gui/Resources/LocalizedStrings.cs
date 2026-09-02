@@ -142,6 +142,15 @@ public static class LocalizedStrings
         ["InventoryDetail.NoEvidence"] = ("No evidence recorded.", "無記錄的證據。"),
         ["InventoryDetail.Metadata"] = ("Metadata", "中繼資料"),
         ["InventoryDetail.NoMetadata"] = ("No metadata recorded.", "無記錄的中繼資料。"),
+
+        // GUI-10 §8: ScheduledTask-specific detail fields
+        ["InventoryDetail.ScheduledTask"] = ("Scheduled Task Details", "排程工作詳細資料"),
+        ["InventoryDetail.ScheduledTask.Folder"] = ("Folder: ", "資料夾："),
+        ["InventoryDetail.ScheduledTask.Trigger"] = ("Trigger: ", "觸發程序："),
+        ["InventoryDetail.ScheduledTask.Action"] = ("Action: ", "動作："),
+        ["InventoryDetail.ScheduledTask.RunAsAccount"] = ("Run As: ", "執行身分："),
+        ["InventoryDetail.ScheduledTask.Enabled"] = ("Enabled: ", "已啟用："),
+        ["InventoryDetail.ScheduledTask.NextRun"] = ("Next Run: ", "下次執行時間："),
         ["Dashboard.DependencySummary"] = ("Dependency Summary", "依賴摘要"),
         ["Dashboard.NoDependencies"] = ("No external dependencies detected.", "未偵測到外部依賴。"),
         ["Dashboard.Applications"] = ("Applications", "應用程式"),
@@ -229,6 +238,22 @@ public static class LocalizedStrings
         ["Migration.Inv.Certificates"] = ("Certificates", "憑證"),
         ["Migration.Inv.Configurations"] = ("Configuration", "設定檔"),
         ["Migration.Inv.ExternalConnections"] = ("External Connections", "外部連線"),
+
+        // GUI-10 §4, §5: Migration Preparation card — distinct from the Migration Checklist card
+        // above. That card shows INVENTORY counts (how many of each thing were discovered); this
+        // one shows INTENT counts (how many preparation actions of each kind are required) — the
+        // same discovered item can require several actions at once, so these numbers are
+        // deliberately not "N services" but "N Create actions, N Configure actions, N Verify
+        // actions" etc.
+        ["Migration.Preparation"] = ("Migration Preparation", "遷移準備"),
+        ["Migration.PreparationSummary"] = ("Preparation actions required on the destination server — not risk findings, and not commands that will be executed. One discovered item may require more than one action.", "在目的伺服器上需要執行的準備動作 — 並非風險發現項目，也不會被自動執行。單一盤點項目可能需要多項準備動作。"),
+        ["Migration.Intent.Deploy"] = ("Deploy", "部署"),
+        ["Migration.Intent.Install"] = ("Install", "安裝"),
+        ["Migration.Intent.Create"] = ("Create", "建立"),
+        ["Migration.Intent.Register"] = ("Register", "註冊"),
+        ["Migration.Intent.Configure"] = ("Configure", "設定"),
+        ["Migration.Intent.Verify"] = ("Verify", "驗證"),
+        ["Migration.Intent.Review"] = ("Review", "審查"),
 
         // GUI-8C: Migration action labels (used as annotations on component sections)
         ["AppDetail.Action.Copy"] = ("→ Copy", "→ 複製"),

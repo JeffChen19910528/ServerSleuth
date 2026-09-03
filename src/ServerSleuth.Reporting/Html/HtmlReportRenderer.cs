@@ -495,14 +495,19 @@ public sealed class HtmlReportRenderer : IReportRenderer
             return;
         }
 
-        var boundariesByName = _boundaries.ToDictionary(b => b.Name, StringComparer.Ordinal);
+        var boundariesByName = _boundaries
+            .GroupBy(b => b.Name, StringComparer.Ordinal)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g.SelectMany(b => b.MemberEntityIds).Distinct(StringComparer.Ordinal).ToList(),
+                StringComparer.Ordinal);
         var databases = _discovery.Entities.OfType<Database>().ToList();
 
         var rows = new List<(string App, IReadOnlyList<Database> Databases)>();
         foreach (var app in apps)
         {
-            if (!boundariesByName.TryGetValue(app.Name, out var boundary)) continue;
-            var memberSet = boundary.MemberEntityIds.ToHashSet(StringComparer.Ordinal);
+            if (!boundariesByName.TryGetValue(app.Name, out var memberEntityIds)) continue;
+            var memberSet = memberEntityIds.ToHashSet(StringComparer.Ordinal);
             var dbs = databases.Where(d => memberSet.Contains(d.Id))
                 .OrderBy(d => d.Name, StringComparer.OrdinalIgnoreCase).ToList();
             if (dbs.Count > 0) rows.Add((app.Name, dbs));

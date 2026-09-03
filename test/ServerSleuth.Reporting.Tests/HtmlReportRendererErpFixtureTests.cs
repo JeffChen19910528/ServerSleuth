@@ -5,10 +5,11 @@ using ServerSleuth.Reporting.Tests.Fixtures;
 namespace ServerSleuth.Reporting.Tests;
 
 /// <summary>
-/// Renders the exact same 17-entity ERP fixture used by every prior phase's own fixture tests,
-/// run through the real Phase 8C pipeline, then through <see cref="HtmlReportRenderer"/> — see
-/// skill.md (Phase 9B) §24. Asserts the HTML reflects the actual, previously-established
-/// semantics — never recalculated here, only rendered.
+/// Renders the same 17-entity ERP fixture used by every prior phase's own fixture tests, run
+/// through the real pipeline and the "Server Deployment Inventory" HTML renderer. The report no
+/// longer shows Risk/Migration content (severity, blocking issues, coverage) — these tests assert
+/// what the redesigned inventory-first report actually shows (deployed applications) and confirm
+/// migration/risk terminology is gone.
 /// </summary>
 public class HtmlReportRendererErpFixtureTests
 {
@@ -60,8 +61,9 @@ public class HtmlReportRendererErpFixtureTests
             healthyDll, healthyCert
         };
 
-        var report = TestPipeline.Run(entities);
-        return new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        return new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
     }
 
     [Fact]
@@ -73,59 +75,29 @@ public class HtmlReportRendererErpFixtureTests
     }
 
     [Fact]
-    public void ContainsBlockedServerStatus()
+    public void ContainsDeployedApplicationNames()
     {
         var html = BuildHtml();
-        Assert.Contains("badge status-blocked", html, StringComparison.Ordinal);
+        Assert.Contains(">ERP<", html, StringComparison.Ordinal);
+        Assert.Contains(">ERPWorker<", html, StringComparison.Ordinal);
+        Assert.Contains(">BatchA<", html, StringComparison.Ordinal);
+        Assert.Contains(">BatchB<", html, StringComparison.Ordinal);
+        Assert.Contains("BatchC", html, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ContainsErpWebNeedsRemediation()
+    public void DoesNotContainRiskOrMigrationTerminology()
     {
         var html = BuildHtml();
-        Assert.Contains("boundary:iis-application:ERP:/", html, StringComparison.Ordinal);
-        Assert.Contains("badge status-needs-remediation", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ContainsErpWorkerBlocked()
-    {
-        var html = BuildHtml();
-        Assert.Contains("boundary:service:ERPWorker", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void ContainsAllThreeBatchBoundaries_ReadyWithConditions()
-    {
-        var html = BuildHtml();
-        Assert.Contains("boundary:service:BatchA", html, StringComparison.Ordinal);
-        Assert.Contains("boundary:service:BatchB", html, StringComparison.Ordinal);
-        Assert.Contains("boundary:scheduledtask:\\ERP\\BatchC", html.Replace("&#x5C;", "\\"), StringComparison.Ordinal);
-        Assert.Contains("badge status-ready-with-conditions", html, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void SharedHostExe_RendersAsOneLogicalDependency_WithThreeAffectedBoundaries()
-    {
-        var html = BuildHtml();
-        var sharedSectionStart = html.IndexOf("id=\"shared-infrastructure\"", StringComparison.Ordinal);
-        Assert.True(sharedSectionStart >= 0);
-
-        var nextSectionStart = html.IndexOf("<section", sharedSectionStart + 1, StringComparison.Ordinal);
-        var sharedSection = html[sharedSectionStart..nextSectionStart];
-
-        // One dependency row (one <code>dependency:SharedBinary:...</code> occurrence), not three.
-        var occurrences = System.Text.RegularExpressions.Regex.Matches(sharedSection, "dependency:SharedBinary:").Count;
-        Assert.Equal(1, occurrences);
-    }
-
-    [Fact]
-    public void ContainsDependencyTypeGroups()
-    {
-        var html = BuildHtml();
-        foreach (var type in new[] { "Certificate", "Database", "FileShare", "Runtime", "SharedBinary" })
-        {
-            Assert.Contains($">{type} (", html, StringComparison.Ordinal);
-        }
+        Assert.DoesNotContain("status-blocked", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("status-needs-remediation", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Migration Status", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Severity", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Blocking", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Verification", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Coverage", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Confidence", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("shared-infrastructure", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("migration-checklist", html, StringComparison.Ordinal);
     }
 }

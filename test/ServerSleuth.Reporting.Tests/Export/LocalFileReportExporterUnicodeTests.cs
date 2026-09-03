@@ -1,4 +1,6 @@
 using ServerSleuth.Reporting.Export;
+using ServerSleuth.Reporting.Html;
+using ServerSleuth.Reporting.Json;
 using ServerSleuth.Reporting.Tests.Fixtures;
 
 namespace ServerSleuth.Reporting.Tests.Export;
@@ -20,8 +22,15 @@ public class LocalFileReportExporterUnicodeTests
         var missingDll = EntityFactory.Dll(@"D:\App\missing.dll", notFound: true);
 
         var entities = new List<Core.Models.DiscoveryEntity> { site, app, webDll, missingDll };
-        var report = TestPipeline.Run(entities);
-        var bundle = ReportArtifactFactory.CreateBundle(report);
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+
+        var jsonResult = new JsonReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var htmlResult = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var bundle = new ReportBundle
+        {
+            Json = ReportArtifactFactory.FromRenderResult(jsonResult, ReportArtifactFactory.DefaultJsonFileName),
+            Html = ReportArtifactFactory.FromRenderResult(htmlResult, ReportArtifactFactory.DefaultHtmlFileName)
+        };
 
         var result = new LocalFileReportExporter().ExportBundle(bundle, temp.Path);
 

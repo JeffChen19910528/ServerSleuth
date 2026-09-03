@@ -59,7 +59,7 @@ public class HtmlReportRendererDeterminismTests
 
         var html = new HtmlReportRenderer(generatedAt: fixedTime).Render(report).Content;
 
-        Assert.Contains("Generated:", html, StringComparison.Ordinal);
+        Assert.Contains("Scan Time:", html, StringComparison.Ordinal);
         Assert.Contains("2026-01-01", html, StringComparison.Ordinal);
     }
 

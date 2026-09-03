@@ -32,21 +32,21 @@ public class ScanCommandErpEndToEndTests
         var json = await File.ReadAllTextAsync(jsonPath);
         var html = await File.ReadAllTextAsync(htmlPath);
 
-        // Server: Blocked
+        // JSON still carries the full internal Risk/Migration assessment (unaffected by the HTML
+        // report redesign — only the HTML renderer stopped surfacing it).
         Assert.Contains("\"OverallMigrationStatus\": \"Blocked\"", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-blocked", html, StringComparison.Ordinal);
-
-        // ERP Web: NeedsRemediation
         Assert.Contains("boundary:iis-application:ERP:/", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-needs-remediation", html, StringComparison.Ordinal);
-
-        // ERP Worker: Blocked
         Assert.Contains("boundary:service:ERPWorker", json, StringComparison.Ordinal);
-
-        // BatchA/B/C: ReadyWithConditions
         Assert.Contains("boundary:service:BatchA", json, StringComparison.Ordinal);
         Assert.Contains("boundary:service:BatchB", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-ready-with-conditions", html, StringComparison.Ordinal);
+
+        // HTML shows the deployed applications (Server Deployment Inventory), never a
+        // Risk/Migration status badge.
+        Assert.Contains(">ERP<", html, StringComparison.Ordinal);
+        Assert.Contains(">ERPWorker<", html, StringComparison.Ordinal);
+        Assert.Contains(">BatchA<", html, StringComparison.Ordinal);
+        Assert.Contains(">BatchB<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("badge status-", html, StringComparison.Ordinal);
 
         // Console progress reflects the same numbers.
         Assert.Contains("Discovery complete", stdout, StringComparison.Ordinal);

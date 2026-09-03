@@ -12,8 +12,41 @@ internal static class ReportLabels
     private static readonly Dictionary<string, (string En, string ZhTw)> Labels =
         new(StringComparer.Ordinal)
         {
-            // Page
-            ["page-title"] = ("Server Inventory Report", "伺服器資產清冊"),
+            // Page — Server Deployment Inventory (report redesign)
+            ["page-title"] = ("Server Deployment Inventory", "Server 部署清冊"),
+            ["server-info"] = ("Server Information", "伺服器資訊"),
+            ["summary"] = ("Summary", "統計摘要"),
+            ["scan-time"] = ("Scan Time:", "掃描時間："),
+            ["show-system-components"] = ("Show System Components", "顯示系統元件"),
+            ["stat-application-components"] = ("Application Components", "程式元件"),
+            ["application-components"] = ("Application Components", "程式元件"),
+            ["business-scheduled-tasks"] = ("Business Scheduled Tasks", "企業排程工作"),
+            ["application-runtime"] = ("Application Runtime", "程式執行環境"),
+            ["application-database-refs"] = ("Application Database References", "程式使用的資料庫"),
+            ["col-server-name"] = ("Server Name:", "伺服器名稱："),
+            ["col-operating-system"] = ("Operating System:", "作業系統："),
+            ["col-component"] = ("Component", "元件"),
+            ["col-database"] = ("Database", "資料庫"),
+            ["col-certificate"] = ("Certificate", "憑證"),
+            ["col-configuration-file"] = ("Configuration File", "設定檔"),
+            ["col-external-connection"] = ("External Connection", "外部連線"),
+            ["col-runtime"] = ("Runtime", "執行環境"),
+            ["app-type-iis"] = ("IIS Application", "IIS 應用程式"),
+            ["app-type-service"] = ("Windows Service", "Windows 服務"),
+            ["app-type-console"] = ("Console Application", "主控台應用程式"),
+            ["status-enabled"] = ("Enabled", "已啟用"),
+            ["status-disabled"] = ("Disabled", "已停用"),
+            ["status-running"] = ("Running", "執行中"),
+            ["status-stopped"] = ("Stopped", "已停止"),
+            ["status-installed"] = ("Installed", "已安裝"),
+            ["status-configured"] = ("Configured", "已設定"),
+            ["cls-system"] = ("System", "系統"),
+            ["cls-third-party"] = ("Third-party", "第三方"),
+            ["cls-business"] = ("Business", "業務系統"),
+            ["cls-custom"] = ("Custom", "自訂"),
+            ["cls-unknown"] = ("Unknown", "未知"),
+
+            // Legacy inventory-overview labels (kept for any remaining internal reference)
             ["inventory-overview"] = ("Server Inventory Overview", "伺服器資產總覽"),
             ["server-overview"] = ("Server Overview", "伺服器總覽"),
 

@@ -36,14 +36,19 @@ public class HtmlReportRendererSecretSafetyTests
     }
 
     [Fact]
-    public void AlreadyRedactedEvidenceDetail_PassesThroughAsRedactedMarker_NeverReExposed()
+    public void ConfigurationDependencyReferences_AreNeverRenderedRaw()
     {
+        // The Server Deployment Inventory report never renders a Configuration entity's detected
+        // dependency references (only its file name, when linked to an Application) — internal
+        // evidence/detail text must not leak into the simplified report.
         var config = EntityFactory.Configuration(@"D:\Redacted\web.config", dependencyReferences: ["FileShare: [REDACTED]"]);
         var entities = new List<DiscoveryEntity> { config };
 
-        var report = TestPipeline.Run(entities);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
-        Assert.Contains("[REDACTED]", html, StringComparison.Ordinal);
+        Assert.StartsWith("<!doctype html>", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("FileShare:", html, StringComparison.Ordinal);
     }
 }

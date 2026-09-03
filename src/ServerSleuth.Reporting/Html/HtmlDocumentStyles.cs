@@ -73,16 +73,21 @@ internal static class HtmlDocumentStyles
           box-shadow: 0 4px 10px rgba(0,0,0,0.12);
           border-color: var(--accent);
         }
-        #inventory-dashboard .grid {
+        #summary .grid {
           grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
         }
 
-        /* ── Migration Assessment separator ─────────────────────── */
-        #migration-assessment {
-          margin-top: 2.5rem;
-          border-top: 3px solid var(--accent);
-          padding-top: 1rem;
+        /* ── Show System Components toggle ──────────────────────── */
+        .show-system-toggle {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          font-size: 0.85rem;
+          color: var(--muted);
+          margin-bottom: 0.75rem;
+          cursor: pointer;
         }
+        body:not(.show-system) [data-cls="system"] { display: none; }
 
         /* ── Tables ──────────────────────────────────────────────── */
         table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
@@ -96,35 +101,13 @@ internal static class HtmlDocumentStyles
         details { margin: 0.4rem 0; }
         details > summary { cursor: pointer; font-weight: 600; }
 
-        /* ── Severity / status badges ────────────────────────────── */
-        .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.78rem; font-weight: 600; color: #fff; }
-        .status-blocked, .severity-critical { background: #b3261e; }
-        .status-needs-remediation, .severity-high { background: #c56a00; }
-        .status-ready-with-conditions, .severity-medium { background: #9a7b00; }
-        .status-ready, .severity-none { background: #2e7d32; }
-        .severity-low { background: #4d7c9e; }
-        .severity-info { background: #6b7280; }
-        .coverage-complete { background: #2e7d32; }
-        .coverage-partial { background: #9a7b00; }
-        .coverage-limited { background: #c56a00; }
-        .coverage-unknown { background: #6b7280; }
-        .impact-blocking { background: #b3261e; }
-        .impact-remediation-required { background: #c56a00; }
-        .impact-conditional { background: #9a7b00; }
-        .impact-informational { background: #4d7c9e; }
-        .impact-unclassified { background: #6b7280; }
-        .priority-critical { background: #b3261e; }
-        .priority-high { background: #c56a00; }
-        .priority-medium { background: #9a7b00; }
-        .priority-low { background: #4d7c9e; }
-        .priority-informational { background: #6b7280; }
-
-        /* ── Category badges ─────────────────────────────────────── */
-        .cat-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-        .cat-system    { background: #e3f2fd; color: #1565c0; }
-        .cat-microsoft { background: #e8f5e9; color: #2e7d32; }
-        .cat-third-party { background: #fce4ec; color: #880e4f; }
-        .cat-custom    { background: #fff3e0; color: #e65100; }
+        /* ── Classification badges ───────────────────────────────── */
+        .cat-badge, .cls-badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .cls-system      { background: #e3f2fd; color: #1565c0; }
+        .cls-third-party { background: #fce4ec; color: #880e4f; }
+        .cls-business    { background: #e8f5e9; color: #2e7d32; }
+        .cls-custom      { background: #fff3e0; color: #e65100; }
+        .cls-unknown     { background: #eceff1; color: #455a64; }
 
         /* ── Inline status text (service running/stopped) ────────── */
         .status-running  { color: #2e7d32; font-weight: 600; }

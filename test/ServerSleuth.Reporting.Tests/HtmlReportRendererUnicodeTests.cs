@@ -18,8 +18,9 @@ public class HtmlReportRendererUnicodeTests
         var missingDll = EntityFactory.Dll(@"D:\伺服器\Web\缺少的檔案.dll", notFound: true);
 
         var entities = new List<DiscoveryEntity> { site, app, webDll, missingDll };
-        var report = TestPipeline.Run(entities);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
         Assert.Contains(chineseName, html, StringComparison.Ordinal);
         Assert.Contains("伺服器", html, StringComparison.Ordinal);
@@ -33,8 +34,9 @@ public class HtmlReportRendererUnicodeTests
         var missingExe = EntityFactory.Dll(mixedPath, notFound: true);
 
         var entities = new List<DiscoveryEntity> { service, missingExe };
-        var report = TestPipeline.Run(entities);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
         Assert.Contains("路徑", html, StringComparison.Ordinal);
         Assert.Contains("Ünïcödé", html, StringComparison.Ordinal);

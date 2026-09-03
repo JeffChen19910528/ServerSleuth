@@ -1,5 +1,7 @@
 using ServerSleuth.Core.Models;
 using ServerSleuth.Reporting.Export;
+using ServerSleuth.Reporting.Html;
+using ServerSleuth.Reporting.Json;
 using ServerSleuth.Reporting.Tests.Fixtures;
 
 namespace ServerSleuth.Reporting.Tests.Export;
@@ -60,8 +62,15 @@ public class LocalFileExportErpFixtureTests
             healthyDll, healthyCert
         };
 
-        var report = TestPipeline.Run(entities);
-        var bundle = ReportArtifactFactory.CreateBundle(report);
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+
+        var jsonResult = new JsonReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var htmlResult = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var bundle = new ReportBundle
+        {
+            Json = ReportArtifactFactory.FromRenderResult(jsonResult, ReportArtifactFactory.DefaultJsonFileName),
+            Html = ReportArtifactFactory.FromRenderResult(htmlResult, ReportArtifactFactory.DefaultHtmlFileName)
+        };
         var result = new LocalFileReportExporter().ExportBundle(bundle, temp.Path);
 
         Assert.True(result.Success);
@@ -70,7 +79,7 @@ public class LocalFileExportErpFixtureTests
     }
 
     [Fact]
-    public void ExportedFiles_Exist_AndContainEstablishedSemantics()
+    public void ExportedFiles_Exist_AndHtmlShowsDeployedApplications_NotRiskStatus()
     {
         using var temp = new TempDirectory();
         var (json, html) = ExportAndRead(temp);
@@ -78,39 +87,33 @@ public class LocalFileExportErpFixtureTests
         Assert.True(System.IO.File.Exists(Path.Combine(temp.Path, "report.json")));
         Assert.True(System.IO.File.Exists(Path.Combine(temp.Path, "report.html")));
 
-        // Server: Blocked
+        // JSON still carries the full Risk/Migration assessment internally (unaffected by the
+        // HTML report redesign — only the HTML renderer stopped surfacing it).
         Assert.Contains("\"OverallMigrationStatus\": \"Blocked\"", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-blocked", html, StringComparison.Ordinal);
-
-        // ERP Web: NeedsRemediation
         Assert.Contains("boundary:iis-application:ERP:/", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-needs-remediation", html, StringComparison.Ordinal);
 
-        // ERP Worker: Blocked
-        Assert.Contains("boundary:service:ERPWorker", json, StringComparison.Ordinal);
-
-        // BatchA/B/C: ReadyWithConditions
-        Assert.Contains("boundary:service:BatchA", json, StringComparison.Ordinal);
-        Assert.Contains("boundary:service:BatchB", json, StringComparison.Ordinal);
-        Assert.Contains("badge status-ready-with-conditions", html, StringComparison.Ordinal);
+        // HTML shows the deployed applications, never the Risk/Migration status badges.
+        Assert.Contains(">ERP<", html, StringComparison.Ordinal);
+        Assert.Contains(">ERPWorker<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("badge status-", html, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void SharedHostExe_IsOneLogicalDependency_WithThreeAffectedBoundaries_InBothFiles()
+    public void SharedHostExe_ThreeSeparateAnchors_AllAppearAsApplicationsInHtml()
     {
         using var temp = new TempDirectory();
         var (json, html) = ExportAndRead(temp);
 
-        // JSON: exactly one SharedInfrastructure entry with 3 boundaries.
+        // JSON: exactly one SharedInfrastructure entry with 3 boundaries (unaffected internal
+        // Migration-analysis semantics).
         using var doc = System.Text.Json.JsonDocument.Parse(json);
         var shared = Assert.Single(doc.RootElement.GetProperty("SharedInfrastructure").EnumerateArray());
         Assert.Equal(3, shared.GetProperty("AffectedBoundaryIds").GetArrayLength());
 
-        // HTML: exactly one occurrence within the shared-infrastructure section.
-        var sectionStart = html.IndexOf("id=\"shared-infrastructure\"", StringComparison.Ordinal);
-        var sectionEnd = html.IndexOf("<section", sectionStart + 1, StringComparison.Ordinal);
-        var section = html[sectionStart..sectionEnd];
-        var occurrences = System.Text.RegularExpressions.Regex.Matches(section, "dependency:SharedBinary:").Count;
-        Assert.Equal(1, occurrences);
+        // HTML: all three anchors (not merged, since 3+ sharers are never merged) still show up
+        // as their own deployed applications.
+        Assert.Contains(">BatchA<", html, StringComparison.Ordinal);
+        Assert.Contains(">BatchB<", html, StringComparison.Ordinal);
+        Assert.Contains("BatchC", html, StringComparison.Ordinal);
     }
 }

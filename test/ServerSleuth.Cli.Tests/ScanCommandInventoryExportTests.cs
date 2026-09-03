@@ -54,7 +54,9 @@ public class ScanCommandInventoryExportTests
 
         var jsonDllCount = doc.RootElement.GetProperty("DllBinaries").GetArrayLength();
         Assert.True(jsonDllCount > 0);
-        Assert.Contains("id=\"dll-binaries\"", html, StringComparison.Ordinal);
+        // The JSON report still carries every discovered DLL; the HTML Server Deployment
+        // Inventory report groups them under their owning Application instead of a flat section.
+        Assert.Contains("id=\"application-components\"", html, StringComparison.Ordinal);
     }
 
     /// <summary>

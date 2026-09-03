@@ -21,8 +21,9 @@ public class HtmlReportRendererHtmlEscapingTests
         var missingDll = EntityFactory.Dll(@"D:\App\missing.dll", notFound: true);
 
         var entities = new List<DiscoveryEntity> { site, app, webDll, missingDll };
-        var report = TestPipeline.Run(entities);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
         Assert.DoesNotContain("<script>alert(1)</script>", html, StringComparison.Ordinal);
         Assert.DoesNotContain("<img src=x onerror=alert(1)>", html, StringComparison.Ordinal);
@@ -43,8 +44,9 @@ public class HtmlReportRendererHtmlEscapingTests
         var missingExe = EntityFactory.Dll(dangerousPath, notFound: true);
 
         var entities = new List<DiscoveryEntity> { service, missingExe };
-        var report = TestPipeline.Run(entities);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
         Assert.DoesNotContain("<script>document.location", html, StringComparison.Ordinal);
         Assert.Contains("&quot;", html, StringComparison.Ordinal);

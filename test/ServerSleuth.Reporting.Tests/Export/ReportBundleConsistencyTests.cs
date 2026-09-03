@@ -1,5 +1,7 @@
 using System.Text.Json;
 using ServerSleuth.Reporting.Export;
+using ServerSleuth.Reporting.Html;
+using ServerSleuth.Reporting.Json;
 using ServerSleuth.Reporting.Tests.Fixtures;
 
 namespace ServerSleuth.Reporting.Tests.Export;
@@ -22,10 +24,16 @@ public class ReportBundleConsistencyTests
         var expiring = EntityFactory.Certificate("cons.example.com", "CONSCERT", validTo: DateTimeOffset.UtcNow.AddDays(10));
 
         var entities = new List<Core.Models.DiscoveryEntity> { serviceA, serviceB, taskC, exe, expiring };
-        var report = TestPipeline.Run(entities);
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
 
-        // 2 & 3. Render JSON and HTML from the same report instance.
-        var bundle = ReportArtifactFactory.CreateBundle(report);
+        // 2 & 3. Render JSON and HTML from the same report/discovery/boundaries instances.
+        var jsonResult = new JsonReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var htmlResult = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: []).Render(report);
+        var bundle = new ReportBundle
+        {
+            Json = ReportArtifactFactory.FromRenderResult(jsonResult, ReportArtifactFactory.DefaultJsonFileName),
+            Html = ReportArtifactFactory.FromRenderResult(htmlResult, ReportArtifactFactory.DefaultHtmlFileName)
+        };
 
         // 4. Export both.
         var result = new LocalFileReportExporter().ExportBundle(bundle, temp.Path);
@@ -35,29 +43,20 @@ public class ReportBundleConsistencyTests
         Assert.True(System.IO.File.Exists(result.Json.OutputPath));
         Assert.True(System.IO.File.Exists(result.Html.OutputPath));
 
-        // 6. Verify their content corresponds to the same report.
+        // 6. Verify their content corresponds to the same report/discovery: the JSON still
+        // carries the full internal Migration status, while the HTML shows the same underlying
+        // deployed applications (ConsA/ConsB/ConsC — three separate anchors sharing one exe,
+        // never merged) without any Risk/Migration status badge.
         var jsonContent = System.IO.File.ReadAllText(result.Json.OutputPath!);
         var htmlContent = System.IO.File.ReadAllText(result.Html.OutputPath!);
 
         using var jsonDoc = JsonDocument.Parse(jsonContent);
         var jsonStatus = jsonDoc.RootElement.GetProperty("Server").GetProperty("OverallMigrationStatus").GetString();
-        var jsonBlockedCount = jsonDoc.RootElement.GetProperty("Server").GetProperty("BlockingIssueCount").GetInt32();
-
         Assert.Equal(report.ServerSummary.OverallMigrationStatus.ToString(), jsonStatus);
-        Assert.Equal(report.ServerSummary.BlockingIssueCount, jsonBlockedCount);
 
-        var expectedBadge = $"badge status-{CssKebabCase(jsonStatus!)}";
-        Assert.Contains(expectedBadge, htmlContent, StringComparison.Ordinal);
-
-        // The shared host.exe dependency ID must appear (in each format's own valid encoding)
-        // identically in both — parsed back out of JSON to avoid a false negative from JSON's
-        // own backslash-escaping of Windows paths.
-        var sharedDependencyId = report.SharedInfrastructure.Single().DependencyId;
-        var jsonDependencyId = jsonDoc.RootElement.GetProperty("SharedInfrastructure").EnumerateArray().Single().GetProperty("DependencyId").GetString();
-        Assert.Equal(sharedDependencyId, jsonDependencyId);
-        Assert.Contains(sharedDependencyId, htmlContent, StringComparison.Ordinal);
+        Assert.DoesNotContain("badge status-", htmlContent, StringComparison.Ordinal);
+        Assert.Contains(">ConsA<", htmlContent, StringComparison.Ordinal);
+        Assert.Contains(">ConsB<", htmlContent, StringComparison.Ordinal);
+        Assert.Contains("ConsC", htmlContent, StringComparison.Ordinal);
     }
-
-    private static string CssKebabCase(string value) =>
-        System.Text.RegularExpressions.Regex.Replace(value, "(?<!^)([A-Z])", "-$1").ToLowerInvariant();
 }

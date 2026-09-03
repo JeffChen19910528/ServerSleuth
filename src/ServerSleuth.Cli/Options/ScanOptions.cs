@@ -1,3 +1,4 @@
+using ServerSleuth.Reporting;
 using ServerSleuth.Reporting.Export;
 
 namespace ServerSleuth.Cli.Options;
@@ -13,6 +14,10 @@ public sealed record ScanOptions
     public ReportFormatOption Format { get; init; } = ReportFormatOption.Both;
     public bool Overwrite { get; init; }
     public bool Quiet { get; init; }
+
+    /// <summary>Report output language. Defaults to Traditional Chinese (zh-TW) for general
+    /// use; pass <c>--lang en</c> to produce an English report.</summary>
+    public ReportLanguage Language { get; init; } = ReportLanguage.ZhTw;
 
     /// <summary>Phase 10B §5-6, §13: when set, prints each scanner's real Id/Status/entity-count
     /// (read directly off <c>AggregateDiscoveryResult.ScannerResults</c> — never fabricated) and

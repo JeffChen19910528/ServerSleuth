@@ -23,7 +23,7 @@ public static class ReportExportRunner
 {
     public static ScanExportOutcome Export(ScanPipelineResult pipelineResult, ScanOptions options)
     {
-        var bundle = ReportArtifactFactory.CreateBundle(pipelineResult);
+        var bundle = ReportArtifactFactory.CreateBundle(pipelineResult, language: options.Language);
         var exporter = new LocalFileReportExporter();
 
         var written = new List<string>();

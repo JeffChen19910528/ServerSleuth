@@ -5,6 +5,7 @@ using ServerSleuth.Reporting.Json;
 
 namespace ServerSleuth.Reporting.Export;
 
+
 /// <summary>
 /// Builds <see cref="ReportArtifact"/>/<see cref="ReportBundle"/> instances from an already-
 /// produced <see cref="ServerMigrationAssessmentReport"/> — see skill.md (Phase 9C) §3, §9.
@@ -42,7 +43,10 @@ public static class ReportArtifactFactory
     /// immediately rather than silently stripping characters into something the caller didn't ask
     /// for.
     /// </summary>
-    public static ReportBundle CreateBundle(ServerMigrationAssessmentReport report, string? filePrefix = null)
+    public static ReportBundle CreateBundle(
+        ServerMigrationAssessmentReport report,
+        string? filePrefix = null,
+        ReportLanguage language = ReportLanguage.En)
     {
         ArgumentNullException.ThrowIfNull(report);
 
@@ -50,7 +54,7 @@ public static class ReportArtifactFactory
         var htmlFileName = filePrefix is null ? DefaultHtmlFileName : $"{filePrefix}.html";
 
         var jsonResult = new JsonReportRenderer().Render(report);
-        var htmlResult = new HtmlReportRenderer().Render(report);
+        var htmlResult = new HtmlReportRenderer(language: language).Render(report);
 
         return new ReportBundle
         {
@@ -66,7 +70,10 @@ public static class ReportArtifactFactory
     /// inventory list fields on the JSON contract). Both artifacts are rendered from the same
     /// in-memory data; no second analysis pass is performed.
     /// </summary>
-    public static ReportBundle CreateBundle(ScanPipelineResult pipeline, string? filePrefix = null)
+    public static ReportBundle CreateBundle(
+        ScanPipelineResult pipeline,
+        string? filePrefix = null,
+        ReportLanguage language = ReportLanguage.En)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
 
@@ -80,7 +87,8 @@ public static class ReportArtifactFactory
         var htmlResult = new HtmlReportRenderer(
             discovery: pipeline.Discovery,
             boundaries: pipeline.Boundaries,
-            externalDependencies: pipeline.ExternalDependencies).Render(pipeline.Report);
+            externalDependencies: pipeline.ExternalDependencies,
+            language: language).Render(pipeline.Report);
 
         return new ReportBundle
         {

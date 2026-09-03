@@ -1,3 +1,5 @@
+using ServerSleuth.Reporting;
+
 namespace ServerSleuth.Cli.Options;
 
 /// <summary>
@@ -17,6 +19,7 @@ public static class ScanOptionsParser
         var overwrite = false;
         var quiet = false;
         var verbose = false;
+        var language = ReportLanguage.ZhTw;  // default: Traditional Chinese
         string? targetValue = null;
         string? sshUser = null;
         string? sshKeyPath = null;
@@ -59,6 +62,11 @@ public static class ScanOptionsParser
 
                 case "--verbose":
                     verbose = true;
+                    break;
+
+                case "--lang":
+                    var langValue = RequireValue(args, ref i, arg);
+                    language = ParseLanguage(langValue);
                     break;
 
                 case "--target":
@@ -150,6 +158,7 @@ public static class ScanOptionsParser
             Overwrite = overwrite,
             Quiet = quiet,
             Verbose = verbose,
+            Language = language,
             Remote = remote,
             WindowsRemote = windowsRemote
         };
@@ -203,6 +212,14 @@ public static class ScanOptionsParser
         "html" => ReportFormatOption.Html,
         "both" => ReportFormatOption.Both,
         _ => throw new CliArgumentException($"Invalid format '{value}'. Expected 'json', 'html', or 'both'.")
+    };
+
+    private static ReportLanguage ParseLanguage(string value) => value.ToLowerInvariant() switch
+    {
+        "en" => ReportLanguage.En,
+        "zh-tw" => ReportLanguage.ZhTw,
+        "zh_tw" => ReportLanguage.ZhTw,
+        _ => throw new CliArgumentException($"Invalid language '{value}'. Expected 'en' or 'zh-TW'.")
     };
 
     /// <summary>

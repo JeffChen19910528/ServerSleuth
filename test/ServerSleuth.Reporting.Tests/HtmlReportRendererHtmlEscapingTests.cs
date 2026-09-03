@@ -50,12 +50,36 @@ public class HtmlReportRendererHtmlEscapingTests
         Assert.Contains("&quot;", html, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The report emits one static <c>&lt;script&gt;</c> block for search/filter UX — this is
+    /// intentional. The security property being verified here is stronger: DYNAMIC user data
+    /// (discovered names, paths, credentials) must never appear inside the script block itself,
+    /// only in HTML attributes (where it is already HTML-encoded by <c>Esc()</c>). A hostile
+    /// service name shaped to break out of a JS string context must remain outside the block.
+    /// </summary>
     [Fact]
-    public void NoScriptTagIsEverEmitted()
+    public void DynamicUserData_NeverAppearsInsideScriptBlock()
     {
-        var report = TestPipeline.Run([]);
-        var html = new HtmlReportRenderer().Render(report).Content;
+        // Adversarially shaped to break a JS string context if ever interpolated into script.
+        var hostileName = "'; alert('XSS'); var x='";
+        var service = EntityFactory.Service(hostileName, @"C:\Windows\system32\svchost.exe");
+        var entities = new List<DiscoveryEntity> { service };
+        var (report, discovery, boundaries) = TestPipeline.RunWithInventory(entities);
+        var html = new HtmlReportRenderer(discovery: discovery, boundaries: boundaries, externalDependencies: [])
+            .Render(report).Content;
 
-        Assert.DoesNotContain("<script", html, StringComparison.OrdinalIgnoreCase);
+        // Extract content of the script block (if present) and verify hostile data is absent.
+        var scriptStart = html.IndexOf("<script>", StringComparison.OrdinalIgnoreCase);
+        if (scriptStart >= 0)
+        {
+            var scriptEnd = html.IndexOf("</script>", scriptStart, StringComparison.OrdinalIgnoreCase);
+            var scriptBlock = scriptEnd >= 0 ? html[scriptStart..scriptEnd] : html[scriptStart..];
+            // The raw hostile string must NOT appear inside the script block.
+            Assert.DoesNotContain(hostileName, scriptBlock, StringComparison.Ordinal);
+            Assert.DoesNotContain("alert('XSS')", scriptBlock, StringComparison.Ordinal);
+        }
+
+        // The hostile string must still appear encoded somewhere in the document (not dropped).
+        Assert.Contains("&#x27;", html, StringComparison.Ordinal);
     }
 }

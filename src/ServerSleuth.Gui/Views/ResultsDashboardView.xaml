@@ -334,7 +334,10 @@
                             </StackPanel>
                             <StackPanel Margin="0,0,16,8">
                                 <TextBlock Text="{DynamicResource Dashboard.OutputDirectory}" Style="{StaticResource Text.Muted}" />
-                                <TextBox Width="320" Text="{Binding ExportDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBox Width="320" Text="{Binding ExportDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                                    <Button Content="{DynamicResource Common.Browse}" Click="BrowseExportDirectory_Click" Margin="4,0,0,0" Padding="8,2" />
+                                </StackPanel>
                             </StackPanel>
                         </WrapPanel>
                         <Button Content="{DynamicResource Dashboard.ExportReport}" Command="{Binding ExportReportCommand}" HorizontalAlignment="Left" />

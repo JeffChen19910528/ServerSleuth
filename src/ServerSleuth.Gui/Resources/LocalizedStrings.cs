@@ -49,6 +49,9 @@ public static class LocalizedStrings
         ["Language.English"] = ("EN", "EN"),
         ["Language.TraditionalChinese"] = ("中文", "中文"),
 
+        // Common — shared across multiple pages (folder/file picker buttons)
+        ["Common.Browse"] = ("Browse…", "瀏覽…"),
+
         // Scan Configuration
         ["ScanConfig.Title"] = ("Scan Configuration", "掃描設定"),
         ["ScanConfig.Target"] = ("Target", "掃描目標"),

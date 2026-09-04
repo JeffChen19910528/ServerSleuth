@@ -20,7 +20,10 @@
                 <TextBlock Text="{DynamicResource Settings.General}" Style="{StaticResource Dashboard.SectionTitle}" />
 
                 <TextBlock Text="{DynamicResource Settings.DefaultOutputDirectory}" Style="{StaticResource Text.Muted}" Margin="0,8,0,0" />
-                <TextBox Width="360" HorizontalAlignment="Left" Text="{Binding DefaultOutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                <StackPanel Orientation="Horizontal">
+                    <TextBox Width="360" Text="{Binding DefaultOutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                    <Button Content="{DynamicResource Common.Browse}" Click="BrowseDefaultOutputDirectory_Click" Margin="4,0,0,0" Padding="8,2" />
+                </StackPanel>
 
                 <TextBlock Text="{DynamicResource Settings.DefaultReportFormat}" Style="{StaticResource Text.Muted}" Margin="0,12,0,0" />
                 <ComboBox Width="160" HorizontalAlignment="Left"

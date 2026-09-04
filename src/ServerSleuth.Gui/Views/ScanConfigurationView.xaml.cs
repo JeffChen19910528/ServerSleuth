@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using ServerSleuth.Core.Targets;
 using ServerSleuth.Gui.ViewModels;
 
@@ -35,6 +36,34 @@ public partial class ScanConfigurationView : UserControl
         if (ViewModel is { } viewModel)
         {
             viewModel.TargetKind = TargetKind.Remote;
+        }
+    }
+
+    private void BrowseSshPrivateKey_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog { Title = "Select SSH Private Key", Filter = "All files (*.*)|*.*" };
+        if (dialog.ShowDialog() == true)
+        {
+            viewModel.SshPrivateKeyPath = dialog.FileName;
+        }
+    }
+
+    private void BrowseOutputDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not { } viewModel)
+        {
+            return;
+        }
+
+        var dialog = new OpenFolderDialog { Title = "Select Output Directory" };
+        if (dialog.ShowDialog() == true)
+        {
+            viewModel.OutputDirectory = dialog.FolderName;
         }
     }
 }

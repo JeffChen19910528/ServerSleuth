@@ -50,7 +50,10 @@
                 <!-- Linux/SSH: private key path + passphrase env var + host fingerprint -->
                 <StackPanel Visibility="{Binding IsLinuxRemote, Converter={StaticResource BoolToVisibility}}">
                     <TextBlock Text="{DynamicResource ScanConfig.PrivateKeyPath}" Style="{StaticResource Text.Muted}" />
-                    <TextBox Text="{Binding SshPrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBox Width="360" Text="{Binding SshPrivateKeyPath, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button Content="{DynamicResource Common.Browse}" Click="BrowseSshPrivateKey_Click" Margin="4,0,0,0" Padding="8,2" />
+                    </StackPanel>
                     <TextBlock Text="{DynamicResource ScanConfig.PassphraseEnvVar}" Style="{StaticResource Text.Muted}" />
                     <TextBox Text="{Binding SshPrivateKeyPassphraseEnvironmentVariable, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
                     <TextBlock Text="{DynamicResource ScanConfig.HostFingerprint}" Style="{StaticResource Text.Muted}" />
@@ -61,7 +64,10 @@
             <!-- Output -->
             <TextBlock Text="{DynamicResource ScanConfig.Output}" Style="{StaticResource Text.Body}" FontWeight="SemiBold" Margin="0,16,0,4" />
             <TextBlock Text="{DynamicResource ScanConfig.Directory}" Style="{StaticResource Text.Muted}" />
-            <TextBox Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,8" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                <TextBox Width="360" Text="{Binding OutputDirectory, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Content="{DynamicResource Common.Browse}" Click="BrowseOutputDirectory_Click" Margin="4,0,0,0" Padding="8,2" />
+            </StackPanel>
 
             <TextBlock Text="{DynamicResource ScanConfig.Format}" Style="{StaticResource Text.Muted}" />
             <ComboBox SelectedValuePath="Tag" SelectedValue="{Binding OutputFormat}" Width="200" HorizontalAlignment="Left" Margin="0,0,0,8">

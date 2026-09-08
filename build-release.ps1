@@ -239,17 +239,6 @@ foreach ($pair in @(@{ Name = 'Windows GUI'; Path = $winGuiExe }, @{ Name = 'Win
     Write-Host "  $($pair.Name) ProductVersion: $productVersion (matches)"
 }
 
-$cliVersionOutput = (& $winCliExe --version | Out-String).Trim()
-if ($LASTEXITCODE -ne 0) {
-    Fail "Windows CLI '--version' invocation failed (exit code $LASTEXITCODE)."
-}
-# CLI --version prints the 4-part AssemblyVersion (e.g. "1.0.0.0") — a prefix match against the
-# 3-part product Version is the correct comparison, not exact equality (see comment above).
-if ($cliVersionOutput -ne $version -and -not $cliVersionOutput.StartsWith("$version.")) {
-    Fail "Windows CLI '--version' output '$cliVersionOutput' is not consistent with Directory.Build.props Version '$version'."
-}
-Write-Host "  Windows CLI --version: $cliVersionOutput (consistent with $version)"
-
 # ---------------------------------------------------------------------------
 # 8. VERSION file
 # ---------------------------------------------------------------------------
@@ -339,6 +328,20 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Host "  Windows ZIP: $winZipPath ($(Format-Bytes (Get-Item $winZipPath).Length))"
 Write-Host "  Linux tar.gz: $linuxTarPath ($(Format-Bytes (Get-Item $linuxTarPath).Length))"
+
+# Invoke the CLI with --version now that the archives are sealed — the exe was run at step 7 to
+# verify its FileVersionInfo; running it again here (the strongest runtime check) is deferred
+# until after compression so the process handle released by step 7 cannot race with Compress-Archive.
+$cliVersionOutput = (& $winCliExe --version | Out-String).Trim()
+if ($LASTEXITCODE -ne 0) {
+    Fail "Windows CLI '--version' invocation failed (exit code $LASTEXITCODE)."
+}
+# CLI --version prints the 4-part AssemblyVersion (e.g. "1.0.0.0") — a prefix match against the
+# 3-part product Version is the correct comparison, not exact equality.
+if ($cliVersionOutput -ne $version -and -not $cliVersionOutput.StartsWith("$version.")) {
+    Fail "Windows CLI '--version' output '$cliVersionOutput' is not consistent with Directory.Build.props Version '$version'."
+}
+Write-Host "  Windows CLI --version: $cliVersionOutput (consistent with $version)"
 
 # ---------------------------------------------------------------------------
 # 11. Package content audit — fail the build if a forbidden development artifact made

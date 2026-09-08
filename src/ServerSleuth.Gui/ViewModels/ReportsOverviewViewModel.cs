@@ -21,13 +21,16 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
 {
     private readonly IGuiReportExportService? _exportService;
     private readonly IGuiReportViewerService? _viewerService;
+    private readonly ILanguageService? _languageService;
 
     public ReportsOverviewViewModel(
-        ScanExecutionState state, IGuiReportExportService? exportService = null, IGuiReportViewerService? viewerService = null)
+        ScanExecutionState state, IGuiReportExportService? exportService = null, IGuiReportViewerService? viewerService = null,
+        ILanguageService? languageService = null)
     {
         State = state;
         _exportService = exportService;
         _viewerService = viewerService;
+        _languageService = languageService;
         _exportDirectory = state.OutputDirectory;
         _selectedReportFileName = ReportFileNames.FirstOrDefault() ?? string.Empty;
 
@@ -139,7 +142,8 @@ public sealed class ReportsOverviewViewModel : ObservableObject, IPageViewModel
             return;
         }
 
-        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy);
+        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy,
+            _languageService?.CurrentLanguage == GuiLanguage.TraditionalChinese);
     }
 
     /// <summary>Raised by the empty-state "Start Scan" button.</summary>

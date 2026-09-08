@@ -1,6 +1,7 @@
 using ServerSleuth.Analysis.Orchestration;
 using ServerSleuth.Gui.Models;
 using ServerSleuth.Gui.Services;
+using ServerSleuth.Reporting;
 using ServerSleuth.Reporting.Export;
 
 namespace ServerSleuth.Gui.ExecutionHost;
@@ -22,6 +23,7 @@ public sealed class GuiReportExportService : IGuiReportExportService
         string outputDirectory,
         ScanOutputFormat format,
         ScanOverwritePolicy overwritePolicy,
+        bool useTraditionalChinese = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
@@ -33,7 +35,7 @@ public sealed class GuiReportExportService : IGuiReportExportService
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var outcome = ExportReport(pipeline, outputDirectory, format, overwritePolicy);
+        var outcome = ExportReport(pipeline, outputDirectory, format, overwritePolicy, useTraditionalChinese);
         if (outcome.Success)
         {
             return GuiReportExportResult.Succeeded(outcome.WrittenFileNames);
@@ -56,9 +58,11 @@ public sealed class GuiReportExportService : IGuiReportExportService
     /// export both call this same method — never two independent export code paths.
     /// GUI-8C: accepts <see cref="ScanPipelineResult"/> so inventory data reaches the HTML renderer.</summary>
     internal static GuiScanExportOutcome ExportReport(
-        ScanPipelineResult pipeline, string outputDirectory, ScanOutputFormat format, ScanOverwritePolicy overwritePolicy)
+        ScanPipelineResult pipeline, string outputDirectory, ScanOutputFormat format, ScanOverwritePolicy overwritePolicy,
+        bool useTraditionalChinese = false)
     {
-        var bundle = ReportArtifactFactory.CreateBundle(pipeline);
+        var reportLanguage = useTraditionalChinese ? ReportLanguage.ZhTw : ReportLanguage.En;
+        var bundle = ReportArtifactFactory.CreateBundle(pipeline, language: reportLanguage);
         var exporter = new LocalFileReportExporter();
         var reportOverwritePolicy = overwritePolicy == ScanOverwritePolicy.Overwrite
             ? ReportOverwritePolicy.Overwrite

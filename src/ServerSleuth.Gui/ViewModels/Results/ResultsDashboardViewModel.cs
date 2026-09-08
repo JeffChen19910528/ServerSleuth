@@ -29,6 +29,7 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
 {
     private readonly IGuiReportExportService? _exportService;
     private readonly IGuiReportViewerService? _viewerService;
+    private readonly ILanguageService? _languageService;
 
     /// <summary>GUI-5 §1-2: both new dependencies are OPTIONAL (default <c>null</c>) — every
     /// GUI-4 call site that built this ViewModel from just a <see cref="ScanExecutionState"/>
@@ -37,11 +38,13 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
     /// <c>CanExecute</c>) rather than throwing. <c>MainViewModel</c>'s real, DI-composed instance
     /// always supplies both.</summary>
     public ResultsDashboardViewModel(
-        ScanExecutionState state, IGuiReportExportService? exportService = null, IGuiReportViewerService? viewerService = null)
+        ScanExecutionState state, IGuiReportExportService? exportService = null, IGuiReportViewerService? viewerService = null,
+        ILanguageService? languageService = null)
     {
         State = state;
         _exportService = exportService;
         _viewerService = viewerService;
+        _languageService = languageService;
 
         var pipeline = state.PipelineResult;
         var report = pipeline?.Report;
@@ -159,7 +162,8 @@ public sealed class ResultsDashboardViewModel : ObservableObject, IPageViewModel
 
         // skill.md GUI-5 §4: never fabricated — whatever IGuiReportExportService itself reports
         // (success or a specific failure reason) is exactly what gets bound here.
-        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy);
+        LastExportResult = _exportService.Export(State.PipelineResult, ExportDirectory, ExportFormat, ExportOverwritePolicy,
+            _languageService?.CurrentLanguage == GuiLanguage.TraditionalChinese);
     }
 
     // ----- GUI-5 §2: Report Viewer — reads an already-written report file's raw text; never

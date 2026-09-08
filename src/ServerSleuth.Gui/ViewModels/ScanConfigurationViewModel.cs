@@ -22,12 +22,14 @@ public sealed class ScanConfigurationViewModel : ObservableObject, IPageViewMode
 {
     private readonly IScanConfigurationValidator _validator;
     private readonly IScanRequestFactory _requestFactory;
+    private readonly ILanguageService? _languageService;
     private ScanCredentialInput _credentials = ScanCredentialInput.Empty;
 
-    public ScanConfigurationViewModel(IScanConfigurationValidator validator, IScanRequestFactory requestFactory)
+    public ScanConfigurationViewModel(IScanConfigurationValidator validator, IScanRequestFactory requestFactory, ILanguageService? languageService = null)
     {
         _validator = validator;
         _requestFactory = requestFactory;
+        _languageService = languageService;
 
         ValidateCommand = new RelayCommand(_ => Validate());
         StartScanCommand = new RelayCommand(_ => StartScan());
@@ -247,7 +249,8 @@ public sealed class ScanConfigurationViewModel : ObservableObject, IPageViewMode
         OutputDirectory = OutputDirectory,
         OutputFormat = OutputFormat,
         OverwritePolicy = OverwritePolicy,
-        Verbose = Verbose
+        Verbose = Verbose,
+        UseTraditionalChineseReport = _languageService?.CurrentLanguage == GuiLanguage.TraditionalChinese
     };
 
     private ScanConfigurationValidationResult Validate()

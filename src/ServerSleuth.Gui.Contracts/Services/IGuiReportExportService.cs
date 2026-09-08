@@ -24,5 +24,6 @@ public interface IGuiReportExportService
         string outputDirectory,
         ScanOutputFormat format,
         ScanOverwritePolicy overwritePolicy,
+        bool useTraditionalChinese = false,
         CancellationToken cancellationToken = default);
 }

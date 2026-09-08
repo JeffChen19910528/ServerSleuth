@@ -35,7 +35,8 @@ public sealed class ScanRequestFactory : IScanRequestFactory
             SshKeyPassphraseEnvironmentVariable = isRemote ? configuration.SshPrivateKeyPassphraseEnvironmentVariable : null,
             SshHostFingerprint = isRemote ? configuration.SshHostFingerprint : null,
             WinRmAuthenticationMechanism = configuration.WinRmAuthenticationMechanism,
-            WinRmUseSsl = configuration.WinRmUseSsl
+            WinRmUseSsl = configuration.WinRmUseSsl,
+            UseTraditionalChineseReport = configuration.UseTraditionalChineseReport
         };
     }
 }

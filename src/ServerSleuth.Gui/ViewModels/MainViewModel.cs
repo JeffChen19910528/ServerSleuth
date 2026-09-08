@@ -168,7 +168,7 @@ public sealed class MainViewModel : ObservableObject
     /// user navigates away and back to <see cref="NavigationPage.Results"/>.</summary>
     private void ShowResults()
     {
-        var dashboard = new ResultsDashboardViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService);
+        var dashboard = new ResultsDashboardViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService, _languageService);
         dashboard.NewScanRequested += (_, _) => GoToScanConfiguration();
         _resultsDashboardViewModel = dashboard;
         _navigationService.NavigateTo(NavigationPage.Results);
@@ -207,7 +207,7 @@ public sealed class MainViewModel : ObservableObject
     /// stale export/viewer result from a previous visit is never shown again on return.</summary>
     private ReportsOverviewViewModel BuildReportsOverviewViewModel()
     {
-        var reports = new ReportsOverviewViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService);
+        var reports = new ReportsOverviewViewModel(_scanExecutionViewModel.State, _reportExportService, _reportViewerService, _languageService);
         reports.StartScanRequested += (_, _) => GoToScanConfiguration();
         return reports;
     }

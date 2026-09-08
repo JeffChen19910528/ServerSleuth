@@ -57,6 +57,10 @@ public sealed record ScanConfigurationState
 
     public bool Verbose { get; init; }
 
+    /// <summary><c>true</c> when the HTML report should be rendered in Traditional Chinese —
+    /// captured from <see cref="ILanguageService.CurrentLanguage"/> at scan-start time.</summary>
+    public bool UseTraditionalChineseReport { get; init; } = false;
+
     public static ScanConfigurationState Initial { get; } = new();
 
     /// <summary>Resolved ONCE, from the current process's own runtime — never probed over a

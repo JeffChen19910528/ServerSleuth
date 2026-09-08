@@ -13,13 +13,14 @@ internal sealed class FakeGuiReportExportService : IGuiReportExportService
 {
     public GuiReportExportResult ResultToReturn { get; set; } = GuiReportExportResult.Succeeded(["report.json", "report.html"]);
 
-    public List<(ScanPipelineResult Pipeline, string OutputDirectory, ScanOutputFormat Format, ScanOverwritePolicy OverwritePolicy)> Calls { get; } = [];
+    public List<(ScanPipelineResult Pipeline, string OutputDirectory, ScanOutputFormat Format, ScanOverwritePolicy OverwritePolicy, bool UseTraditionalChinese)> Calls { get; } = [];
 
     public GuiReportExportResult Export(
         ScanPipelineResult pipeline, string outputDirectory, ScanOutputFormat format, ScanOverwritePolicy overwritePolicy,
+        bool useTraditionalChinese = false,
         CancellationToken cancellationToken = default)
     {
-        Calls.Add((pipeline, outputDirectory, format, overwritePolicy));
+        Calls.Add((pipeline, outputDirectory, format, overwritePolicy, useTraditionalChinese));
         return ResultToReturn;
     }
 }

@@ -151,6 +151,8 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 
 視窗右上角有兩個按鈕：**EN** 與 **中文**。點擊即可在英文與繁體中文之間即時切換整個介面的文字（畫面標籤、按鈕、欄位名稱、左側導覽選單、底部狀態列），不需要重新啟動程式，也不會中斷或重新執行目前的掃描/結果。語言選擇僅保存在目前執行的程式記憶體中，關閉程式後會重設為預設的英文，不會被記住到下次啟動。
 
+**HTML 報表會跟隨 GUI 語言設定產出**。在掃描開始時若介面已切換為繁體中文，產出的 `report.html` 所有標題、欄位名稱、狀態文字皆會以繁體中文呈現；英文介面下則產出英文報表。「Reports」頁面的「Export Report」按鈕同理——匯出時採用當下的介面語言。資料值（伺服器名稱、服務名稱、檔案路徑、軟體名稱等來自受掃描系統的原始文字）不在翻譯範圍內，只有 UI 標籤與欄位名稱會切換語言。
+
 > 目前有少部分文字尚未納入語言切換（會固定顯示英文），例如：掃描設定的驗證錯誤訊息、掃描階段/風險等級/遷移狀態這類直接來自後端資料的列舉值文字、以及報表匯出/檢視結果的提示訊息。這是本次功能已知的限制，不影響上述「操作流程總覽」中每個畫面本身的操作。
 
 ### 各畫面逐步說明
@@ -218,7 +220,7 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 - **Applications（應用程式清單）**：可用文字方塊搜尋應用程式名稱、用下拉選單依風險等級篩選、勾選「Only with issues」只顯示有問題的項目。清單中點擊任一列即可在下方展開該應用程式的詳細資料（見下一節）。
 - 往下依序可展開（點擊區塊標題即可收合/展開）：**Risk Findings（風險發現）**、**Migration Issues（遷移問題）**、**Migration Actions（遷移動作，僅供檢視，不提供執行按鈕）**、**Verification Checks（驗證檢查項目，僅供檢視）**、**Scanner Status（各掃描器執行狀態）**。
 - **Reports（報表）** 區塊：下拉選單選擇已產生的報表檔案，點擊 **Open Report（開啟報表）** 會以純文字方式在下方文字框內顯示該檔案內容（不會重新產生報表，也不會把 HTML 當成網頁執行）。
-- **Export Report（匯出報表）** 區塊：選擇 `Format`（JSON/HTML/Both）、`If a file already exists`（FailIfExists 或 Overwrite）與 `Output directory`，點擊 **Export Report** 進行匯出；成功或失敗都會在下方顯示結果訊息。
+- **Export Report（匯出報表）** 區塊：選擇 `Format`（JSON/HTML/Both）、`If a file already exists`（FailIfExists 或 Overwrite）與 `Output directory`，點擊 **Export Report** 進行匯出；成功或失敗都會在下方顯示結果訊息。匯出的 HTML 報表語言與目前介面語言一致（切換至中文再匯出即可得到中文報表）。
 - 畫面右上角 **New Scan（新掃描）** 按鈕：直接返回「掃描設定」畫面開始新的一次掃描。
 
 **6. 應用程式詳細資料（Application Detail）** —— 在結果儀表板或遷移評估畫面的應用程式清單中點選任一列後，會在清單下方展開此區塊（兩個畫面重用完全相同的元件）：
@@ -238,7 +240,7 @@ GUI 完全重用與 CLI 相同的掃描/分析/報表後端（不會重複實作
 
 - **Latest Scan（最近一次掃描）**：目標、平台、完成時間、狀態。
 - **Available Reports（可用的報表）**：下拉選單選擇已產生的報表檔案，點擊 **Open（開啟）** 會以純文字方式在下方文字框內顯示該檔案內容（JSON 與 HTML 皆以純文字呈現，不會把 HTML 當成網頁渲染，也不會執行任何 JavaScript）。
-- **Export Report（匯出報表）**：選擇 `Format`（JSON/HTML/Both）、`If a file already exists`（FailIfExists 或 Overwrite）與 `Output directory`，點擊匯出；成功或失敗都會顯示結果訊息。
+- **Export Report（匯出報表）**：選擇 `Format`（JSON/HTML/Both）、`If a file already exists`（FailIfExists 或 Overwrite）與 `Output directory`，點擊匯出；成功或失敗都會顯示結果訊息。匯出的 HTML 報表語言與目前介面語言一致。
 - 這個畫面重用與結果儀表板完全相同的匯出/檢視服務，並非另一套匯出邏輯。
 
 **9. 設定（Settings）** —— 從左側導覽點選「Settings」即可看到這個畫面：
@@ -310,7 +312,7 @@ release/
 
 ## 目前完成進度
 
-專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）、GUI-1 至 GUI-7C（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、語言切換、探勘盤點、儀表板摘要、遷移評估、報表、設定，以及第一輪最終整合驗收與上線前健檢），以及 GUI-8A 至 GUI-10（盤點優先的 Dashboard/應用程式元件檢視、Migration Checklist、JSON/HTML 報表的完整盤點資料修復、`MigrationIntentCatalog`/`MigrationPreparationSummary` 這套以**盤點為依據、與風險判定完全無關**的遷移準備模型，以及 GUI 上的「Migration Preparation」卡片與排程工作詳細欄位）。GUI 的七個導覽頁面（Dashboard / Scan / Inventory / Results / Migration / Reports / Settings）皆為完整可用的真實畫面，沒有任何一個仍是尚未實作的佔位畫面。詳細的版本異動請見 [`CHANGELOG.md`](docs/CHANGELOG.md)；GUI-7C 當時的最終驗收證據見 [`docs/releases/FINAL_RELEASE_SIGNOFF.md`](docs/releases/FINAL_RELEASE_SIGNOFF.md)（歷史記錄，之後的 GUI-8A–GUI-10 與本次最終驗收未再產生新檔案，異動內容以 `CHANGELOG.md` 為準）。
+專案已完成 Phase 1–10E-3（核心領域模型、Windows/Linux 探勘、關聯分析、風險引擎、遷移評估、報表輸出、CLI）、GUI-1 至 GUI-7C（WPF 應用程式外殼、掃描設定、掃描執行、結果儀表板、報表匯出/檢視、語言切換、探勘盤點、儀表板摘要、遷移評估、報表、設定，以及第一輪最終整合驗收與上線前健檢），以及 GUI-8A 至 GUI-10（盤點優先的 Dashboard/應用程式元件檢視、Migration Checklist、JSON/HTML 報表的完整盤點資料修復、`MigrationIntentCatalog`/`MigrationPreparationSummary` 這套以**盤點為依據、與風險判定完全無關**的遷移準備模型，以及 GUI 上的「Migration Preparation」卡片與排程工作詳細欄位）。此外，已修正 **HTML 報表語言與 GUI 介面語言不一致**的問題：掃描開始時或從「Reports/Results」頁面重新匯出時，產出的 `report.html` 標籤語言現在會跟隨 GUI 目前的語言設定（中文介面 → 中文報表，英文介面 → 英文報表）。GUI 的七個導覽頁面（Dashboard / Scan / Inventory / Results / Migration / Reports / Settings）皆為完整可用的真實畫面，沒有任何一個仍是尚未實作的佔位畫面。詳細的版本異動請見 [`CHANGELOG.md`](docs/CHANGELOG.md)；GUI-7C 當時的最終驗收證據見 [`docs/releases/FINAL_RELEASE_SIGNOFF.md`](docs/releases/FINAL_RELEASE_SIGNOFF.md)（歷史記錄，之後的 GUI-8A–GUI-10 與本次最終驗收未再產生新檔案，異動內容以 `CHANGELOG.md` 為準）。
 
 > **Migration Preparation 只是描述，不是指令。** `MigrationIntentCatalog`/`MigrationPreparationSummary` 依據「已探勘到的盤點項目」（而非風險發現/問題/嚴重性）計算出 Deploy / Install / Create / Register / Configure / Verify / Review 這幾種準備動作各需要處理幾項，純粹告訴使用者「到新伺服器上要準備什麼」，工具本身**不會**執行任何一項——這與上一段「嚴格唯讀」原則完全一致。
 

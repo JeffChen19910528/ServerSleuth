@@ -181,5 +181,5 @@ public sealed class GuiScanExecutor : IGuiScanExecutor
     /// implementation, never two.</summary>
     private static GuiScanExportOutcome ExportReport(
         ServerSleuth.Analysis.Orchestration.ScanPipelineResult pipeline, ScanRequest request) =>
-        GuiReportExportService.ExportReport(pipeline, request.OutputDirectory, request.OutputFormat, request.OverwritePolicy);
+        GuiReportExportService.ExportReport(pipeline, request.OutputDirectory, request.OutputFormat, request.OverwritePolicy, request.UseTraditionalChineseReport);
 }

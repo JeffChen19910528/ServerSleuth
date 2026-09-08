@@ -61,4 +61,9 @@ public sealed record ScanRequest
     public ScanWinRmAuthenticationMechanism WinRmAuthenticationMechanism { get; init; } = ScanWinRmAuthenticationMechanism.Negotiate;
 
     public bool WinRmUseSsl { get; init; } = true;
+
+    /// <summary><c>true</c> when the HTML report should be rendered in Traditional Chinese;
+    /// <c>false</c> (default) for English. Captured from the GUI's language service at
+    /// scan-start time so the report language matches the UI language the user had selected.</summary>
+    public bool UseTraditionalChineseReport { get; init; } = false;
 }
